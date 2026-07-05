@@ -1189,7 +1189,9 @@ var _chartInst = null;
 var _caChartInst = null;
 
 // ═══ TARIFS PILOTABLES — source unique (site_config/tarifs), synchro temps réel ═══
-var TARIF_DEFAULTS = {pension:25, garderie:20, demi:10, promenade:15, toilettage:30, visite:15, remise2:10, remise3:15, packDuo:33};
+var TARIF_DEFAULTS = {pension:25, garderie:20, demi:10, promenade:15, toilettage:30, visite:15, remise2:10, remise3:15, packDuo:33,
+  deplFixe:5, deplKm:0.5,
+  vChien:15, vChat:12, vFuret:13, vPoules:13, vLapin:10, vRongeur:10, vOiseau:10, vTortue:10, vPoisson:8, vSupp1h:5};
 window._TARIFS = null;
 function getTarifs(){ var t={}; for(var k in TARIF_DEFAULTS) t[k]=TARIF_DEFAULTS[k]; if(window._TARIFS){ for(var k2 in window._TARIFS){ if(window._TARIFS[k2]!=null) t[k2]=Number(window._TARIFS[k2]); } } return t; }
 
@@ -2063,7 +2065,7 @@ _db.ref('site_config/tarifs').on('value', function(snap){
 });
 // Enregistre un tarif (bouton +/− ou saisie) → écrit dans site_config/tarifs (instantané)
 function tarifSet(key, val){
-  val = Math.max(0, Math.round(Number(val)||0));
+  val = Math.max(0, Math.round((Number(val)||0)*100)/100);
   _db.ref('site_config/tarifs/'+key).set(val)
     .then(function(){ if(window.showToast) showToast('💶 Tarif mis à jour'); })
     .catch(function(e){ alert('Erreur : '+e.message); });
@@ -2082,7 +2084,20 @@ var TARIF_META = [
   {k:'demi',      label:'🌤️ Demi-journée',          unit:'€'},
   {k:'promenade', label:'🦮 Promenade',             unit:'€'},
   {k:'toilettage',label:'🛁 Toilettage',            unit:'€'},
-  {k:'visite',    label:'🏡 Visite à domicile (base)', unit:'€'},
+  {grp:'Frais de déplacement (récupération & visites)'},
+  {k:'deplFixe',  label:'🚗 Forfait de déplacement', unit:'€'},
+  {k:'deplKm',    label:'🚗 Prix au kilomètre (aller-retour)', unit:'€ / km', step:0.1},
+  {grp:'Visite à domicile — prix par animal (30 min)'},
+  {k:'vChien',    label:'🐶 Chien',                  unit:'€'},
+  {k:'vChat',     label:'🐱 Chat',                   unit:'€'},
+  {k:'vFuret',    label:'🦡 Furet',                  unit:'€'},
+  {k:'vPoules',   label:'🐔 Poules / basse-cour',    unit:'€'},
+  {k:'vLapin',    label:'🐰 Lapin',                  unit:'€'},
+  {k:'vRongeur',  label:'🐹 Rongeur',                unit:'€'},
+  {k:'vOiseau',   label:'🦜 Oiseau',                 unit:'€'},
+  {k:'vTortue',   label:'🐢 Tortue / reptile',       unit:'€'},
+  {k:'vPoisson',  label:'🐠 Poisson',                unit:'€'},
+  {k:'vSupp1h',   label:'⏱️ Supplément visite 1h',   unit:'€'},
   {grp:'Remises'},
   {k:'remise2',   label:'🎉 Réduction 2 chiens',     unit:'%'},
   {k:'remise3',   label:'🎉 Réduction 3 chiens et +', unit:'%'},
@@ -2094,12 +2109,12 @@ function renderTarifsEditor(){
   var T = getTarifs();
   box.innerHTML = TARIF_META.map(function(m){
     if(m.grp) return '<div style="font-size:.78rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:18px 0 6px;">'+m.grp+'</div>';
-    var step = m.unit==='%' ? 5 : 1;
+    var step = m.step != null ? m.step : (m.unit==='%' ? 5 : 1);
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px;background:var(--bg);">'
       + '<span style="font-weight:600;font-size:.92rem;color:var(--text);">'+m.label+'</span>'
       + '<span style="display:flex;align-items:center;gap:8px;">'
       +   '<button class="refresh-btn" style="width:34px;height:34px;padding:0;font-size:1.2rem;line-height:1;" onclick="tarifAdjust(\''+m.k+'\',-'+step+')">−</button>'
-      +   '<input type="number" min="0" value="'+T[m.k]+'" onchange="tarifSet(\''+m.k+'\',this.value)" style="width:70px;text-align:center;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-weight:800;font-size:1rem;background:#fff;color:var(--text);">'
+      +   '<input type="number" min="0" step="'+step+'" value="'+T[m.k]+'" onchange="tarifSet(\''+m.k+'\',this.value)" style="width:70px;text-align:center;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-weight:800;font-size:1rem;background:#fff;color:var(--text);">'
       +   '<span style="font-size:.8rem;color:var(--muted);min-width:44px;">'+m.unit+'</span>'
       +   '<button class="refresh-btn" style="width:34px;height:34px;padding:0;font-size:1.2rem;line-height:1;" onclick="tarifAdjust(\''+m.k+'\','+step+')">+</button>'
       + '</span></div>';
