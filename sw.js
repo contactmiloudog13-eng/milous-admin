@@ -1,8 +1,10 @@
-const CACHE = 'milou-admin-v7';
+const CACHE = 'milou-admin-v8';
 const ASSETS = [
-  '/milou-admin/',
-  '/milou-admin/index.html',
-  '/milou-admin/manifest.json'
+  './',
+  './index.html',
+  './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
 self.addEventListener('install', e => {
