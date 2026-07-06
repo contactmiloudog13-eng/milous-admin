@@ -336,6 +336,7 @@ function ejsSendRefuse(r, messageRefus) {
   <button class="nav-item" onclick="show('clients',this)"><span class="ico">👤</span> Fiches clients</button>
   <button class="nav-item" onclick="show('facturation',this)"><span class="ico">💶</span> Facturation</button>
   <button class="nav-item" onclick="show('tarifs',this);renderTarifsEditor();"><span class="ico">🏷️</span> Tarifs &amp; remises</button>
+  <button class="nav-item" onclick="show('carnet',this);loadCarnets();"><span class="ico">🎟️</span> Carnet Malin <span id="carnet-badge" style="display:none;background:#E8A84C;color:#1a0e00;border-radius:20px;padding:1px 7px;font-size:.68rem;font-weight:700;margin-left:4px;"></span></button>
   <button class="nav-item" onclick="show('avis-google',this);loadGoogleAvisAdmin();" id="nav-avis-google"><span class="ico">⭐</span> Avis Google <span id="avis-google-badge" style="display:none;background:#E8A84C;color:#fff;border-radius:20px;padding:1px 7px;font-size:.68rem;font-weight:700;margin-left:4px;"></span></button>
   <button class="nav-item" onclick="show('avis-request',this);loadAvisRequest();"><span class="ico">📣</span> Demander un avis</button>
   <button class="nav-item" onclick="show('analytics',this);loadAnalytics();"><span class="ico">📈</span> Affluence du site</button>
@@ -563,6 +564,21 @@ function ejsSendRefuse(r, messageRefus) {
       <div class="panel-title">💶 Vos prix (modifiables en direct)</div>
       <p style="font-size:.85rem;color:var(--muted);margin-bottom:6px;line-height:1.6;">Modifiez un prix avec les boutons <b>−</b> / <b>+</b> ou en tapant la valeur. <b>La modification est instantanée</b> : elle s'applique aussitôt aux <b>devis</b>, aux <b>estimations de CA</b> et aux <b>prix affichés sur le site</b> (réservation, accueil, services). 🐾</p>
       <div id="tarifs-editor"><div class="loading">Chargement des tarifs…</div></div>
+    </div>
+  </div>
+
+  <!-- CARNET MALIN -->
+  <div id="v-carnet" class="view">
+    <div class="topbar"><h1>Carnet Malin 🎟️</h1></div>
+    <div class="panel">
+      <div class="panel-title">🕒 Demandes en attente de paiement</div>
+      <p style="font-size:.85rem;color:var(--muted);margin-bottom:10px;line-height:1.6;">Quand un client a réglé son Carnet Malin (par virement), cliquez sur <b>« Activer »</b> : ses <b>10 nuits</b> apparaissent aussitôt dans son espace client.</p>
+      <div id="carnet-requests"><div class="loading">Chargement…</div></div>
+    </div>
+    <div class="panel" style="margin-top:16px;">
+      <div class="panel-title">🎟️ Carnets actifs</div>
+      <p style="font-size:.85rem;color:var(--muted);margin-bottom:10px;line-height:1.6;">Décomptez une nuit à chaque séjour utilisé. Le client voit ses nuits restantes en temps réel.</p>
+      <div id="carnet-actifs"><div class="loading">Chargement…</div></div>
     </div>
   </div>
 
@@ -2139,6 +2155,64 @@ function renderTarifsEditor(){
   }).join('');
 }
 window.renderTarifsEditor = renderTarifsEditor;
+
+/* ═══ CARNET MALIN — activation + gestion des nuits ═══ */
+function _cEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+function _cNom(uid){ var u=(window._firebaseUsers||{})[uid]||{}; var n=((u.prenom||'')+' '+(u.nom||'')).trim(); return n||u.email||uid.slice(0,6); }
+function _cTel(uid){ var u=(window._firebaseUsers||{})[uid]||{}; return u.tel||u.telephone||''; }
+window._carnets={}; window._carnetReqs={};
+function loadCarnets(){
+  if(!window._carnetInit){
+    window._carnetInit=true;
+    try{
+      _db.ref('carnet_requests').on('value',function(s){ window._carnetReqs=s.val()||{}; renderCarnetsAdmin(); });
+      _db.ref('carnets').on('value',function(s){ window._carnets=s.val()||{}; renderCarnetsAdmin(); });
+    }catch(e){}
+  }
+  renderCarnetsAdmin();
+}
+function renderCarnetsAdmin(){
+  var reqs=window._carnetReqs||{}, carnets=window._carnets||{};
+  var pending=Object.keys(reqs).filter(function(uid){ return (reqs[uid]&&reqs[uid].status==='en_attente') && !(carnets[uid]&&carnets[uid].status==='actif'); });
+  var badge=document.getElementById('carnet-badge');
+  if(badge){ if(pending.length){ badge.style.display=''; badge.textContent=pending.length; } else badge.style.display='none'; }
+  var rbox=document.getElementById('carnet-requests');
+  if(rbox) rbox.innerHTML= pending.length ? pending.map(function(uid){
+    var r=reqs[uid];
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;background:var(--bg);">'+
+      '<div><b>'+_cEsc(_cNom(uid))+'</b><div style="font-size:.78rem;color:var(--muted);">'+_cEsc(r.email||'')+(r.telephone?' · '+_cEsc(r.telephone):'')+' · demandé le '+new Date(r.requestedAt||Date.now()).toLocaleDateString('fr-FR')+' · '+(r.prix||0)+'€</div></div>'+
+      '<button class="refresh-btn" style="background:#5A7A4A;color:#fff;border:none;" onclick="activateCarnet(\''+uid+'\','+(r.prix||0)+')">✅ Activer (paiement reçu)</button></div>';
+  }).join('') : '<div style="color:var(--muted);font-size:.85rem;padding:8px;">Aucune demande en attente.</div>';
+  var actifs=Object.keys(carnets).filter(function(uid){ return carnets[uid]&&carnets[uid].status==='actif'; });
+  var abox=document.getElementById('carnet-actifs');
+  if(abox) abox.innerHTML= actifs.length ? actifs.map(function(uid){
+    var c=carnets[uid], nights=c.nights||10, used=c.usages?Object.keys(c.usages).length:(c.used||0), left=Math.max(0,nights-used);
+    return '<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;background:var(--bg);">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">'+
+      '<div><b>'+_cEsc(_cNom(uid))+'</b> <span style="font-size:.78rem;color:var(--muted);">'+(_cTel(uid)?'· '+_cEsc(_cTel(uid)):'')+'</span></div>'+
+      '<div style="font-weight:800;color:#4A3F72;">'+left+' / '+nights+' nuits</div></div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'+
+      '<button class="refresh-btn" onclick="carnetUseNight(\''+uid+'\')" '+(left<=0?'disabled style="opacity:.5;"':'')+'>➖ Décompter une nuit</button>'+
+      '<button class="refresh-btn" onclick="carnetAddNight(\''+uid+'\')">➕ Ajouter</button>'+
+      '<button class="refresh-btn" style="color:#c0392b;" onclick="carnetClose(\''+uid+'\')">🗑️ Clôturer</button></div></div>';
+  }).join('') : '<div style="color:var(--muted);font-size:.85rem;padding:8px;">Aucun carnet actif.</div>';
+}
+function activateCarnet(uid,prix){
+  if(!confirm('Activer le Carnet Malin (10 nuits) pour ce client ?\nLe paiement est bien reçu ?')) return;
+  var now=Date.now();
+  _db.ref('carnets/'+uid).set({ nights:10, usages:{}, status:'actif', prix:prix||0, activatedAt:now, expiresAt:now+365*86400000 })
+    .then(function(){ _db.ref('carnet_requests/'+uid+'/status').set('active'); if(window.showToast)showToast('🎟️ Carnet activé !'); })
+    .catch(function(e){ alert('Erreur : '+e.message); });
+}
+function carnetUseNight(uid){
+  var date=prompt('Date de la nuit utilisée (JJ/MM/AAAA) — vide = aujourd\'hui :','');
+  var iso; if(date&&/^\d{2}\/\d{2}\/\d{4}$/.test(date)){ var p=date.split('/'); iso=p[2]+'-'+p[1]+'-'+p[0]; } else iso=new Date().toISOString().slice(0,10);
+  _db.ref('carnets/'+uid+'/usages').push({ date:iso, ts:Date.now() }).then(function(){ if(window.showToast)showToast('🌙 Nuit décomptée'); });
+}
+function carnetAddNight(uid){ var c=(window._carnets||{})[uid]; if(!c)return; _db.ref('carnets/'+uid+'/nights').set((c.nights||10)+1).then(function(){ if(window.showToast)showToast('➕ Nuit ajoutée'); }); }
+function carnetClose(uid){ if(!confirm('Clôturer ce carnet ?')) return; _db.ref('carnets/'+uid+'/status').set('termine'); }
+window.loadCarnets=loadCarnets;window.activateCarnet=activateCarnet;window.carnetUseNight=carnetUseNight;window.carnetAddNight=carnetAddNight;window.carnetClose=carnetClose;
+try{ if(typeof _db!=='undefined') loadCarnets(); }catch(e){}
 
 /* ═══ Menu réorganisable par GLISSER-DÉPOSER (ordre mémorisé par espace) ═══ */
 (function(){
