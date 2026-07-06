@@ -321,7 +321,10 @@ function ejsSendRefuse(r, messageRefus) {
     <button id="ws-dogs" class="ws-btn active" onclick="setWorkspace('dogs')">🐕 Milou Dogs</button>
     <button id="ws-pets" class="ws-btn" onclick="setWorkspace('pets')">🐾 Milou Pets</button>
   </div>
-  <button id="nav-reorder-btn" onclick="toggleNavReorder()" style="display:block;width:calc(100% - 32px);margin:4px 16px 8px;padding:7px 12px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.15);border-radius:12px;font-size:.75rem;font-weight:600;cursor:pointer;text-align:center;">⇅ Réorganiser le menu</button>
+  <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:0 16px 4px;">
+    <span id="nav-reorder-hint" style="display:none;font-size:.66rem;color:var(--soleil,#E8A84C);font-weight:600;">Glissez pour ranger</span>
+    <button id="nav-reorder-btn" onclick="toggleNavReorder()" title="Réorganiser le menu (glisser-déposer)" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.55);border-radius:8px;width:26px;height:26px;padding:0;font-size:.9rem;line-height:1;cursor:pointer;flex-shrink:0;">⠿</button>
+  </div>
   <div id="nav-grp-dogs">
   <div class="nav-sep">Navigation</div>
   <button class="nav-item active" onclick="show('dashboard',this)"><span class="ico">📊</span> Tableau de bord</button>
@@ -2137,7 +2140,7 @@ function renderTarifsEditor(){
 }
 window.renderTarifsEditor = renderTarifsEditor;
 
-/* ═══ Menu réorganisable : Lilou range les rubriques comme elle veut ═══ */
+/* ═══ Menu réorganisable par GLISSER-DÉPOSER (ordre mémorisé par espace) ═══ */
 (function(){
   var GROUPS = ['nav-grp-dogs','nav-grp-pets'];
   function items(gid){ var g=document.getElementById(gid); return g ? [].slice.call(g.querySelectorAll('.nav-item')) : []; }
@@ -2151,36 +2154,74 @@ window.renderTarifsEditor = renderTarifsEditor;
     saved.forEach(function(k){ if(byKey[k]){ g.appendChild(byKey[k]); delete byKey[k]; } });
     its.forEach(function(el){ if(byKey[keyOf(el)]) g.appendChild(el); }); // nouveaux items → à la fin
   }
-  var _on=false;
+
+  var _on=false, _drag=null;
   window.toggleNavReorder=function(){
     _on=!_on;
-    var btn=document.getElementById('nav-reorder-btn');
+    var btn=document.getElementById('nav-reorder-btn'), hint=document.getElementById('nav-reorder-hint');
     if(btn){
-      btn.textContent=_on?'✓ Terminer la réorganisation':'⇅ Réorganiser le menu';
+      btn.textContent=_on?'✓':'⠿';
       btn.style.background=_on?'rgba(232,168,76,.92)':'rgba(255,255,255,.08)';
-      btn.style.color=_on?'#2a2118':'rgba(255,255,255,.7)';
+      btn.style.color=_on?'#2a2118':'rgba(255,255,255,.55)';
+      btn.title=_on?'Terminer':'Réorganiser le menu (glisser-déposer)';
     }
+    if(hint) hint.style.display=_on?'inline':'none';
     GROUPS.forEach(function(gid){
       items(gid).forEach(function(el){
-        var ctrl=el.querySelector('.nav-move');
-        if(_on && !ctrl){
-          ctrl=document.createElement('span'); ctrl.className='nav-move';
-          ctrl.style.cssText='margin-left:auto;display:inline-flex;gap:1px;flex-shrink:0;';
-          ctrl.innerHTML='<span onclick="event.stopPropagation();navMove(this,-1)" title="Monter" style="cursor:pointer;padding:0 5px;font-size:.8rem;">▲</span>'
-                        +'<span onclick="event.stopPropagation();navMove(this,1)" title="Descendre" style="cursor:pointer;padding:0 5px;font-size:.8rem;">▼</span>';
-          el.appendChild(ctrl);
-        } else if(!_on && ctrl){ ctrl.remove(); }
+        if(_on){
+          el.setAttribute('draggable','true');
+          el.classList.add('nav-draggable');
+          el.style.cursor='grab';
+        } else {
+          el.removeAttribute('draggable');
+          el.classList.remove('nav-draggable','nav-drag-ghost');
+          el.style.cursor='';
+        }
       });
     });
   };
-  window.navMove=function(span,dir){
-    var el=span.closest('.nav-item'); if(!el) return;
-    var g=el.parentNode;
-    if(dir<0){ var p=el.previousElementSibling; while(p && !p.classList.contains('nav-item')) p=p.previousElementSibling; if(p) g.insertBefore(el,p); }
-    else { var n=el.nextElementSibling; while(n && !n.classList.contains('nav-item')) n=n.nextElementSibling; if(n) g.insertBefore(n,el); }
-    saveOrder(g.id);
-  };
-  function init(){ GROUPS.forEach(applyOrder); }
+
+  // Handlers de glisser-déposer (délégués sur tout le document)
+  document.addEventListener('dragstart', function(e){
+    if(!_on) return;
+    var el=e.target.closest && e.target.closest('.nav-item'); if(!el) return;
+    _drag=el; el.classList.add('nav-drag-ghost');
+    try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain','x'); }catch(_){}
+  });
+  document.addEventListener('dragover', function(e){
+    if(!_on || !_drag) return;
+    var over=e.target.closest && e.target.closest('.nav-item');
+    if(!over || over===_drag) return;
+    var g=over.parentNode; if(_drag.parentNode!==g) return; // reste dans le même groupe
+    e.preventDefault();
+    var r=over.getBoundingClientRect();
+    var before=(e.clientY - r.top) < r.height/2;
+    g.insertBefore(_drag, before ? over : over.nextSibling);
+  });
+  document.addEventListener('drop', function(e){ if(_on && _drag){ e.preventDefault(); } });
+  document.addEventListener('dragend', function(){
+    if(!_drag) return;
+    _drag.classList.remove('nav-drag-ghost');
+    saveOrder(_drag.parentNode.id);
+    _drag=null;
+  });
+  // En mode réorg, un clic ne doit pas naviguer (sinon on quitte la vue en glissant)
+  document.addEventListener('click', function(e){
+    if(!_on) return;
+    var el=e.target.closest && e.target.closest('.nav-item');
+    if(el && el!==document.getElementById('nav-reorder-btn')){ e.preventDefault(); e.stopPropagation(); }
+  }, true);
+
+  function init(){
+    GROUPS.forEach(applyOrder);
+    if(!document.getElementById('nav-drag-css')){
+      var st=document.createElement('style'); st.id='nav-drag-css';
+      st.textContent='.nav-item.nav-draggable{outline:1px dashed rgba(255,255,255,.25);outline-offset:-3px;border-radius:10px;}'
+        +'.nav-item.nav-drag-ghost{opacity:.45;background:rgba(232,168,76,.25);}'
+        +'.nav-item.nav-draggable:active{cursor:grabbing!important;}';
+      document.head.appendChild(st);
+    }
+  }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 })();
 
