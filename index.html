@@ -2179,17 +2179,20 @@ function renderCarnetsAdmin(){
   var rbox=document.getElementById('carnet-requests');
   if(rbox) rbox.innerHTML= pending.length ? pending.map(function(uid){
     var r=reqs[uid];
+    var nom=((r.prenom||'')+' '+(r.nom||'')).trim()||_cNom(uid);
     return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;background:var(--bg);">'+
-      '<div><b>'+_cEsc(_cNom(uid))+'</b><div style="font-size:.78rem;color:var(--muted);">'+_cEsc(r.email||'')+(r.telephone?' · '+_cEsc(r.telephone):'')+' · demandé le '+new Date(r.requestedAt||Date.now()).toLocaleDateString('fr-FR')+' · '+(r.prix||0)+'€</div></div>'+
+      '<div><b>'+_cEsc(nom)+'</b><div style="font-size:.78rem;color:var(--muted);">'+_cEsc(r.email||'')+(r.telephone?' · '+_cEsc(r.telephone):'')+' · demandé le '+new Date(r.requestedAt||Date.now()).toLocaleDateString('fr-FR')+' · '+(r.prix||0)+'€</div></div>'+
       '<button class="refresh-btn" style="background:#5A7A4A;color:#fff;border:none;" onclick="activateCarnet(\''+uid+'\','+(r.prix||0)+')">✅ Activer (paiement reçu)</button></div>';
   }).join('') : '<div style="color:var(--muted);font-size:.85rem;padding:8px;">Aucune demande en attente.</div>';
   var actifs=Object.keys(carnets).filter(function(uid){ return carnets[uid]&&carnets[uid].status==='actif'; });
   var abox=document.getElementById('carnet-actifs');
   if(abox) abox.innerHTML= actifs.length ? actifs.map(function(uid){
     var c=carnets[uid], nights=c.nights||10, used=c.usages?Object.keys(c.usages).length:(c.used||0), left=Math.max(0,nights-used);
+    var nom=((c.prenom||'')+' '+(c.nom||'')).trim()||_cNom(uid);
+    var tel=c.telephone||_cTel(uid);
     return '<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;background:var(--bg);">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">'+
-      '<div><b>'+_cEsc(_cNom(uid))+'</b> <span style="font-size:.78rem;color:var(--muted);">'+(_cTel(uid)?'· '+_cEsc(_cTel(uid)):'')+'</span></div>'+
+      '<div><b>'+_cEsc(nom)+'</b> <span style="font-size:.78rem;color:var(--muted);">'+(tel?'· '+_cEsc(tel):'')+'</span></div>'+
       '<div style="font-weight:800;color:#4A3F72;">'+left+' / '+nights+' nuits</div></div>'+
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'+
       '<button class="refresh-btn" onclick="carnetUseNight(\''+uid+'\')" '+(left<=0?'disabled style="opacity:.5;"':'')+'>➖ Décompter une nuit</button>'+
@@ -2200,7 +2203,9 @@ function renderCarnetsAdmin(){
 function activateCarnet(uid,prix){
   if(!confirm('Activer le Carnet Malin (10 nuits) pour ce client ?\nLe paiement est bien reçu ?')) return;
   var now=Date.now();
-  _db.ref('carnets/'+uid).set({ nights:10, usages:{}, status:'actif', prix:prix||0, activatedAt:now, expiresAt:now+365*86400000 })
+  var r=(window._carnetReqs||{})[uid]||{};
+  _db.ref('carnets/'+uid).set({ nights:10, usages:{}, status:'actif', prix:prix||0, activatedAt:now, expiresAt:now+365*86400000,
+    prenom:r.prenom||'', nom:r.nom||'', email:r.email||'', telephone:r.telephone||'' })
     .then(function(){ _db.ref('carnet_requests/'+uid+'/status').set('active'); if(window.showToast)showToast('🎟️ Carnet activé !'); })
     .catch(function(e){ alert('Erreur : '+e.message); });
 }
@@ -2210,7 +2215,14 @@ function carnetUseNight(uid){
   _db.ref('carnets/'+uid+'/usages').push({ date:iso, ts:Date.now() }).then(function(){ if(window.showToast)showToast('🌙 Nuit décomptée'); });
 }
 function carnetAddNight(uid){ var c=(window._carnets||{})[uid]; if(!c)return; _db.ref('carnets/'+uid+'/nights').set((c.nights||10)+1).then(function(){ if(window.showToast)showToast('➕ Nuit ajoutée'); }); }
-function carnetClose(uid){ if(!confirm('Clôturer ce carnet ?')) return; _db.ref('carnets/'+uid+'/status').set('termine'); }
+function carnetClose(uid){
+  if(!confirm('Clôturer ce carnet ? Il sera retiré de l\'espace du client.')) return;
+  Promise.all([
+    _db.ref('carnets/'+uid).remove(),
+    _db.ref('carnet_requests/'+uid).remove()
+  ]).then(function(){ if(window.showToast)showToast('🗑️ Carnet clôturé et retiré de l\'espace client'); })
+    .catch(function(e){ alert('Erreur : '+e.message); });
+}
 window.loadCarnets=loadCarnets;window.activateCarnet=activateCarnet;window.carnetUseNight=carnetUseNight;window.carnetAddNight=carnetAddNight;window.carnetClose=carnetClose;
 try{ if(typeof _db!=='undefined') loadCarnets(); }catch(e){}
 
