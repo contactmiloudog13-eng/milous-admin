@@ -4127,6 +4127,11 @@ function toggleFbDetail(id) {
 }
 
 function setFbStatus(id, statut) {
+  // Remise en attente / refus : on restitue les jours du Carnet Malin s'ils avaient été décomptés.
+  if (statut === 'en-attente' || statut === 'refusé' || statut === 'annulée') {
+    var _rr = (window._fbResas || []).find(function(x) { return x._id === id; });
+    if (_rr) _carnetRestoreResa(_rr);
+  }
   _db.ref('reservations/' + id).update({ statut: statut });
   var msg = statut === 'confirmé' ? '✅ Réservation confirmée !'
           : statut === 'refusé'   ? '❌ Réservation refusée'
@@ -4134,11 +4139,48 @@ function setFbStatus(id, statut) {
   showToast(msg);
 }
 
+// Décompte des jours du Carnet Malin à l'acceptation d'une réservation.
+async function _carnetApplyResa(r, id) {
+  try {
+    var cm = r && r.carnetMalin;
+    if (!cm || !cm.uid || !(cm.nuitsDeduites > 0) || cm.applied) return;
+    var cref = _db.ref('carnets/' + cm.uid);
+    var csnap = await cref.get();
+    var c = csnap.val();
+    if (!c) return;
+    // Si le carnet était archivé (épuisé), on le réactive pour permettre le décompte.
+    if (c.status === 'archive') await cref.update({ status: 'actif' });
+    var keys = [];
+    for (var i = 0; i < cm.nuitsDeduites; i++) {
+      var ref = cref.child('usages').push();
+      await ref.set({ date: cm.date || r.dateArrivee || '', ts: Date.now() + i, note: 'Réservation (acceptée)', resaId: id });
+      keys.push(ref.key);
+    }
+    await _db.ref('reservations/' + id + '/carnetMalin').update({ applied: true, usageKeys: keys });
+  } catch (e) { console.warn('Carnet accept:', e); }
+}
+
+// Restitution des jours du Carnet Malin si une réservation acceptée est annulée/refusée/supprimée.
+async function _carnetRestoreResa(r) {
+  try {
+    var cm = r && r.carnetMalin;
+    if (!cm || !cm.uid || !cm.applied) return;
+    var cref = _db.ref('carnets/' + cm.uid);
+    var keys = cm.usageKeys;
+    if (keys && keys.length) {
+      for (var i = 0; i < keys.length; i++) await cref.child('usages/' + keys[i]).remove();
+    }
+    // Le carnet redevient actif (au cas où il aurait été archivé entre-temps).
+    await cref.update({ status: 'actif' });
+    if (r._id) await _db.ref('reservations/' + r._id + '/carnetMalin').update({ applied: false, usageKeys: null });
+  } catch (e) { console.warn('Carnet restore:', e); }
+}
+
 function acceptFbResa(id) {
   var r = (window._fbResas || []).find(function(x) { return x._id === id; });
   _db.ref('reservations/' + id).update({ statut: 'confirmé' });
   showToast('✅ Réservation confirmée !');
-  if (r) ejsSendConfirme(r);
+  if (r) { _carnetApplyResa(r, id); ejsSendConfirme(r); }
   if (!r) return;
   var client = r.client || {};
   var chien  = r.chien  || {};
@@ -4160,6 +4202,8 @@ function acceptFbResa(id) {
 
 function deleteFbResa(id, name) {
   if (!confirm('Supprimer définitivement la réservation de ' + name + ' ?')) return;
+  var _rr = (window._fbResas || []).find(function(x) { return x._id === id; });
+  if (_rr) _carnetRestoreResa(_rr);
   _db.ref('reservations/' + id).remove();
   showToast('🗑️ Réservation supprimée');
 }
@@ -4183,6 +4227,8 @@ function confirmRefuse() {
   var msg = document.getElementById('refuse-msg').value.trim();
   var update = { statut: 'refusé' };
   if (msg) update.messageRefus = msg;
+  var _rrf = (window._fbResas || []).find(function(x) { return x._id === _refuseResaId; });
+  if (_rrf) _carnetRestoreResa(_rrf);
   _db.ref('reservations/' + _refuseResaId).update(update);
   showToast('❌ Réservation refusée');
   var r = (window._fbResas || []).find(function(x){ return x._id === _refuseResaId; });
