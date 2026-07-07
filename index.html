@@ -950,6 +950,18 @@ function ejsSendRefuse(r, messageRefus) {
       </p>
       <div id="ml-warn" style="font-size:.8rem;color:#B54708;margin-top:8px;"></div>
     </div>
+
+    <div class="panel" style="margin-top:18px;border:1.5px solid var(--lav-d);">
+      <div class="panel-title">📢 Publier dans les comptes clients</div>
+      <p style="font-size:.83rem;color:var(--muted);margin:4px 0 12px;line-height:1.6;">
+        Publie l'objet + le message ci-dessus comme <strong>annonce visible directement dans l'espace client</strong> de <strong>tous vos clients connectés</strong> (en plus ou à la place de l'email). Idéal pour une offre ou une info : ils la voient dès qu'ils ouvrent leur compte.
+      </p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <button onclick="mlPublishAccount()" style="background:var(--lav-d);color:#fff;border:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:.9rem;cursor:pointer;">📢 Publier l'annonce</button>
+      </div>
+      <div id="ml-pub-msg" style="font-size:.82rem;color:var(--vert,#2e9e5b);margin-top:10px;min-height:16px;"></div>
+      <div id="ml-pub-list" style="margin-top:14px;"></div>
+    </div>
   </div>
 
   <!-- IMAGES DU SITE (hero + photos des pages, pilotées via Firebase site_images) -->
@@ -2350,7 +2362,47 @@ function _mlFallbackCopy(text){
   var ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select();
   try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
 }
+function mlPublishAccount(){
+  var subj=((document.getElementById('ml-subject')||{}).value||'').trim();
+  var body=((document.getElementById('ml-body')||{}).value||'').trim();
+  if(!subj && !body){ alert('Écrivez au moins un objet ou un message avant de publier.'); return; }
+  if(!confirm('Publier cette annonce dans l\'espace de TOUS vos clients ?')) return;
+  _db.ref('announcements').push({ title:subj, body:body, ts:Date.now() })
+    .then(function(){
+      var m=document.getElementById('ml-pub-msg');
+      if(m){ m.textContent='✅ Annonce publiée — visible dans l\'espace client.'; setTimeout(function(){ m.textContent=''; },5000); }
+      mlLoadAnnonces();
+    })
+    .catch(function(e){ alert('Erreur : '+(e.message||e)); });
+}
+function mlLoadAnnonces(){
+  var el=document.getElementById('ml-pub-list');
+  if(!el) return;
+  _db.ref('announcements').orderByChild('ts').limitToLast(20).get().then(function(s){
+    var arr=[]; s.forEach(function(c){ var v=c.val()||{}; v._id=c.key; arr.push(v); });
+    arr.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+    if(!arr.length){ el.innerHTML='<p style="font-size:.8rem;color:var(--muted);">Aucune annonce publiée pour le moment.</p>'; return; }
+    var h='<div style="font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:8px;">Annonces en ligne</div>';
+    arr.forEach(function(a){
+      var d=a.ts?new Date(a.ts).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+      h+='<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:8px;">'
+        +'<div style="min-width:0;"><div style="font-weight:700;font-size:.85rem;">'+(a.title||'(sans objet)')+'</div>'
+        +'<div style="font-size:.78rem;color:var(--muted);white-space:pre-wrap;">'+((a.body||'').substring(0,140))+((a.body||'').length>140?'…':'')+'</div>'
+        +'<div style="font-size:.7rem;color:var(--muted);margin-top:4px;">'+d+'</div></div>'
+        +'<button onclick="mlDeleteAnnonce(\''+a._id+'\')" title="Retirer" style="flex:none;background:#fdecea;color:#c0392b;border:none;padding:6px 10px;border-radius:8px;font-size:.78rem;font-weight:700;cursor:pointer;">🗑️</button>'
+        +'</div>';
+    });
+    el.innerHTML=h;
+  }).catch(function(){});
+}
+function mlDeleteAnnonce(id){
+  if(!confirm('Retirer cette annonce de l\'espace client ?')) return;
+  _db.ref('announcements/'+id).remove().then(mlLoadAnnonces);
+}
+var _mlLoadMailingOrig=loadMailing;
+loadMailing=function(){ _mlLoadMailingOrig(); try{ mlLoadAnnonces(); }catch(e){} };
 window.loadMailing=loadMailing;window.mlCopyEmails=mlCopyEmails;window.mlCopyAll=mlCopyAll;window.mlOpenMail=mlOpenMail;
+window.mlPublishAccount=mlPublishAccount;window.mlLoadAnnonces=mlLoadAnnonces;window.mlDeleteAnnonce=mlDeleteAnnonce;
 
 /* ═══ Menu réorganisable par GLISSER-DÉPOSER (ordre mémorisé par espace) ═══ */
 (function(){
