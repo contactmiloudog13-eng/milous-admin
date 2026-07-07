@@ -339,6 +339,7 @@ function ejsSendRefuse(r, messageRefus) {
   <button class="nav-item" onclick="show('carnet',this);loadCarnets();"><span class="ico">🎟️</span> Carnet Malin <span id="carnet-badge" style="display:none;background:#E8A84C;color:#1a0e00;border-radius:20px;padding:1px 7px;font-size:.68rem;font-weight:700;margin-left:4px;"></span></button>
   <button class="nav-item" onclick="show('avis-google',this);loadGoogleAvisAdmin();" id="nav-avis-google"><span class="ico">⭐</span> Avis Google <span id="avis-google-badge" style="display:none;background:#E8A84C;color:#fff;border-radius:20px;padding:1px 7px;font-size:.68rem;font-weight:700;margin-left:4px;"></span></button>
   <button class="nav-item" onclick="show('avis-request',this);loadAvisRequest();"><span class="ico">📣</span> Demander un avis</button>
+  <button class="nav-item" onclick="show('mailing',this);loadMailing();"><span class="ico">✉️</span> Email groupé</button>
   <button class="nav-item" onclick="show('analytics',this);loadAnalytics();"><span class="ico">📈</span> Affluence du site</button>
   <button class="nav-item" onclick="show('photos',this);loadPhotosAdmin();"><span class="ico">📸</span> Galerie photos</button>
   <button class="nav-item" onclick="show('site-images',this);loadSiteImages();"><span class="ico">🖼️</span> Images du site</button>
@@ -911,6 +912,43 @@ function ejsSendRefuse(r, messageRefus) {
         <div class="panel-title" style="color:#8B6020;">💡 Le bon réflexe</div>
         <p style="font-size:.84rem;color:#7a5a1a;margin:4px 0 0;line-height:1.6;">Envoyez le message <strong>le jour où le client récupère son chien</strong>, tant qu'il est encore ému et content. C'est le moment où le taux d'avis est le plus élevé. Un client satisfait sur trois laisse un avis si on le lui demande — contre presque zéro sans demande.</p>
       </div>
+    </div>
+  </div>
+
+  <!-- EMAIL GROUPÉ — envoyer un message à tous les clients d'un coup -->
+  <div id="v-mailing" class="view">
+    <div class="topbar">
+      <h1>✉️ Email groupé</h1>
+      <div class="topbar-right">
+        <span class="last-sync">Prévenez tous vos clients d'une offre, d'un congé…</span>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:18px;">
+      <div class="panel-title">📇 Destinataires</div>
+      <p style="font-size:.83rem;color:var(--muted);margin:4px 0 12px;line-height:1.6;">
+        Tous les emails de vos clients sont récupérés automatiquement (fiches clients + comptes). Les doublons sont retirés.
+        Le message part en <strong>copie cachée (Cci)</strong> : chaque client reçoit l'email <strong>sans voir les autres adresses</strong>.
+      </p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <span id="ml-count" style="font-weight:700;color:var(--lav-d);font-size:.95rem;">…</span>
+        <button onclick="loadMailing()" style="background:var(--border);color:var(--text);border:none;padding:8px 14px;border-radius:10px;font-weight:600;font-size:.82rem;cursor:pointer;">🔄 Actualiser la liste</button>
+        <button onclick="mlCopyEmails()" style="background:var(--lav-d);color:#fff;border:none;padding:8px 16px;border-radius:10px;font-weight:600;font-size:.82rem;cursor:pointer;">📋 Copier les adresses (Cci)</button>
+      </div>
+      <div id="ml-copy-msg" style="font-size:.8rem;color:var(--vert,#2e9e5b);margin-top:8px;min-height:16px;"></div>
+    </div>
+
+    <div class="panel" style="margin-top:18px;">
+      <div class="panel-title">📝 Votre message</div>
+      <input id="ml-subject" type="text" placeholder="Objet de l'email (ex : 🎁 -10% sur votre prochaine garde !)" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.9rem;background:var(--bg);color:var(--text);margin-bottom:12px;">
+      <textarea id="ml-body" rows="10" placeholder="Bonjour,&#10;&#10;Écrivez votre message ici…&#10;&#10;À très vite,&#10;Milou Dogs Provence" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.88rem;line-height:1.6;background:var(--bg);color:var(--text);resize:vertical;"></textarea>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
+        <button onclick="mlOpenMail()" style="background:var(--lav-d);color:#fff;border:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:.9rem;cursor:pointer;">✉️ Ouvrir dans ma messagerie</button>
+        <button onclick="mlCopyAll()" style="background:var(--border);color:var(--text);border:none;padding:12px 20px;border-radius:10px;font-weight:600;font-size:.85rem;cursor:pointer;">📋 Copier objet + message</button>
+      </div>
+      <p style="font-size:.8rem;color:var(--muted);margin-top:12px;line-height:1.6;">
+        « Ouvrir dans ma messagerie » prépare l'email (destinataires en Cci, objet et texte remplis) dans votre logiciel de mail (Gmail, Outlook, Mail…). Vous n'avez plus qu'à <strong>cliquer sur Envoyer</strong>. Rien n'est envoyé automatiquement.
+      </p>
+      <div id="ml-warn" style="font-size:.8rem;color:#B54708;margin-top:8px;"></div>
     </div>
   </div>
 
@@ -2225,6 +2263,70 @@ function carnetClose(uid){
 }
 window.loadCarnets=loadCarnets;window.activateCarnet=activateCarnet;window.carnetUseNight=carnetUseNight;window.carnetAddNight=carnetAddNight;window.carnetClose=carnetClose;
 try{ if(typeof _db!=='undefined') loadCarnets(); }catch(e){}
+
+/* ═══ EMAIL GROUPÉ — collecte des emails clients + préparation mailto Cci ═══ */
+function _mlCollectEmails(){
+  var set={}, out=[];
+  // 1) Clients construits (fiches + comptes) : variable globale allClients
+  try{ (window.allClients||(typeof allClients!=='undefined'?allClients:[])||[]).forEach(function(c){
+    var e=(c.email||'').trim().toLowerCase();
+    if(e && e.indexOf('@')>0 && !set[e]){ set[e]=1; out.push(c.email.trim()); }
+  }); }catch(e){}
+  // 2) Fiches clients brutes (clients/{key})
+  try{ Object.values(window._clientsDb||{}).forEach(function(c){
+    var e=((c&&c.email)||'').trim().toLowerCase();
+    if(e && e.indexOf('@')>0 && !set[e]){ set[e]=1; out.push(c.email.trim()); }
+  }); }catch(e){}
+  // 3) Comptes Firebase
+  try{ Object.values(window._firebaseUsers||{}).forEach(function(u){
+    var e=((u&&u.email)||'').trim().toLowerCase();
+    if(e && e.indexOf('@')>0 && !set[e]){ set[e]=1; out.push(u.email.trim()); }
+  }); }catch(e){}
+  return out;
+}
+function loadMailing(){
+  var emails=_mlCollectEmails();
+  window.__mlEmails=emails;
+  var el=document.getElementById('ml-count');
+  if(el) el.textContent='📇 '+emails.length+' client'+(emails.length>1?'s':'')+' avec email';
+  var warn=document.getElementById('ml-warn');
+  if(warn) warn.textContent = emails.length>90 ? '⚠️ Beaucoup de destinataires : certains fournisseurs limitent le nombre d\'adresses par envoi. Au besoin, faites 2 envois (copiez les adresses en Cci).' : '';
+}
+function mlCopyEmails(){
+  var emails=window.__mlEmails||_mlCollectEmails();
+  _mlCopy(emails.join(', '), 'ml-copy-msg', '✅ '+emails.length+' adresses copiées — collez-les dans le champ Cci de votre messagerie.');
+}
+function mlCopyAll(){
+  var subj=(document.getElementById('ml-subject')||{}).value||'';
+  var body=(document.getElementById('ml-body')||{}).value||'';
+  _mlCopy('Objet : '+subj+'\n\n'+body, 'ml-copy-msg', '✅ Objet + message copiés.');
+}
+function mlOpenMail(){
+  var emails=window.__mlEmails||_mlCollectEmails();
+  if(!emails.length){ alert('Aucun email client trouvé.'); return; }
+  var subj=(document.getElementById('ml-subject')||{}).value||'';
+  var body=(document.getElementById('ml-body')||{}).value||'';
+  if(!subj && !body){ alert('Écrivez au moins un objet ou un message.'); return; }
+  var bcc=encodeURIComponent(emails.join(','));
+  var href='mailto:?bcc='+bcc+'&subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
+  if(href.length>1900){
+    // mailto trop long : on prépare quand même l'objet/message et on copie les adresses
+    mlCopyEmails();
+    href='mailto:?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
+    alert('Vous avez beaucoup de destinataires. Les adresses ont été copiées : collez-les dans le champ Cci après l\'ouverture de votre messagerie.');
+  }
+  window.location.href=href;
+}
+function _mlCopy(text, msgId, okMsg){
+  var done=function(){ var m=document.getElementById(msgId); if(m){ m.textContent=okMsg; setTimeout(function(){ m.textContent=''; },4000); } };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done, function(){ _mlFallbackCopy(text); done(); }); }
+  else { _mlFallbackCopy(text); done(); }
+}
+function _mlFallbackCopy(text){
+  var ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
+}
+window.loadMailing=loadMailing;window.mlCopyEmails=mlCopyEmails;window.mlCopyAll=mlCopyAll;window.mlOpenMail=mlOpenMail;
 
 /* ═══ Menu réorganisable par GLISSER-DÉPOSER (ordre mémorisé par espace) ═══ */
 (function(){
