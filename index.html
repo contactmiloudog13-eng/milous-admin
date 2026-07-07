@@ -3198,6 +3198,51 @@ function copyDevis() {
   navigator.clipboard.writeText(txt).then(() => showToast('📋 Devis copié !'));
 }
 
+// Crée une facture À PARTIR DU PRIX DU SITE (pas de recalcul) → apparaît dans Facturation.
+// Retourne true si créée, false si déjà existante.
+function _factureFromResa(r) {
+  if (!r || !r._id) return false;
+  var dh = window._devisHistory || {};
+  var exists = Object.keys(dh).some(function(k){ return dh[k] && dh[k].resaKey === r._id; });
+  if (exists) return false;
+  var client = r.client || {};
+  var prenom = ((client.prenom || '') + ' ' + (client.nom || '')).trim() || 'Client';
+  var total = _fbResaTotal(r.prix) || (r.prix || '');
+  var detail = String(r.prix || '').replace(/\s*\|\s*/g, '<br>');
+  var entry = {
+    prenom: prenom,
+    chien: (r.chien && r.chien.nom) || '',
+    tel: client.telephone || '',
+    service: r.service || '',
+    total: total,
+    date: new Date().toLocaleDateString('fr-FR'),
+    txt: String(r.prix || ''),
+    detail: detail,
+    dateDebut: r.dateArrivee || '',
+    dateFin: r.dateDepart || '',
+    heureArrivee: r.heureArrivee || '',
+    heureDepart: r.heureDepart || '',
+    resaKey: r._id
+  };
+  var dk = sanitizeKey('devis_' + Date.now() + '_' + prenom);
+  _db.ref('devis_history/' + dk).set(entry);
+  if (!window._devisHistory) window._devisHistory = {};
+  window._devisHistory[dk] = entry; // maj locale immédiate (anti-doublon avant sync)
+  return true;
+}
+
+// Bouton 🧾 Facturer d'une résa du site : crée la facture au prix du site puis va sur Facturation.
+function factureResaSite(key) {
+  var r = (window._fbResas || []).find(function(x){ return x._id === key; });
+  if (!r) { showToast('Réservation introuvable'); return; }
+  var created = _factureFromResa(r);
+  show('facturation', null);
+  document.querySelectorAll('.nav-item').forEach(function(b){ if(b.textContent.includes('Facturation')) b.classList.add('active'); else b.classList.remove('active'); });
+  showToast(created ? '🧾 Facture créée au prix du site !' : '🧾 Déjà facturé — voir ci-dessous');
+  if (typeof renderDevisHistory === 'function') { try { renderDevisHistory(); } catch(e){} }
+  setTimeout(function(){ var el=document.getElementById('factures-list'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }, 350);
+}
+
 // Crée (manuellement) la facture d'une réservation acceptée → apparaît dans Facturation
 function facturerResa(key) {
   var rev = [...allData].reverse();
@@ -4113,7 +4158,7 @@ function buildResaRow(r, colspan) {
     actions += '<button class="btn-undo" title="Remettre en attente" onclick="setFbStatus(\'' + safeRId + '\',\'en-attente\')">↩️</button>';
   }
   if (statut === 'confirmé') {
-    actions += '<button title="Créer la facture" onclick="facturerResa(\'' + safeRId + '\')" style="background:var(--lav-d);color:#fff;border:none;padding:5px 10px;border-radius:20px;font-size:.72rem;font-weight:700;cursor:pointer;">🧾 Facturer</button>';
+    actions += '<button title="Créer la facture (prix du site)" onclick="factureResaSite(\'' + safeRId + '\')" style="background:var(--lav-d);color:#fff;border:none;padding:5px 10px;border-radius:20px;font-size:.72rem;font-weight:700;cursor:pointer;">🧾 Facturer</button>';
     actions += '<button class="btn-undo" title="Journal de séjour (photos + notes pour le client)" onclick="openJournal(\'' + safeRId + '\',\'' + safeName + '\')">📔</button>';
     actions += '<button class="btn-undo" title="Demander un avis Google par WhatsApp" onclick="askReview(\'' + tel + '\',\'' + (prenom||'').replace(/'/g,'') + '\')">⭐</button>';
   }
@@ -4250,7 +4295,7 @@ function acceptFbResa(id) {
   var r = (window._fbResas || []).find(function(x) { return x._id === id; });
   _db.ref('reservations/' + id).update({ statut: 'confirmé' });
   showToast('✅ Réservation confirmée !');
-  if (r) { _carnetApplyResa(r, id); ejsSendConfirme(r); }
+  if (r) { _carnetApplyResa(r, id); _factureFromResa(r); ejsSendConfirme(r); }
   if (!r) return;
   var client = r.client || {};
   var chien  = r.chien  || {};
