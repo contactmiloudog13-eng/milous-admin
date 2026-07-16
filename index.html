@@ -243,7 +243,7 @@ function ejsSendRefuse(r, messageRefus) {
   window._fbSet = (path, data) => _db.ref(path).set(data);
   window._fbDb = true; // flag
 
-  // ── Milou Pets : 2e projet Firebase (app nommée isolée) ──────────────
+  // ── Milou Compagnie : 2e projet Firebase (app nommée isolée) ──────────────
   const _mpConfig = {
     apiKey: "AIzaSyBTmL1oUDkKpzJ1NTdBdQTda7J2BS9nHAQ",
     authDomain: "milou-pets.firebaseapp.com",
@@ -316,10 +316,10 @@ function ejsSendRefuse(r, messageRefus) {
   </div>
   <button id="pwa-install-btn" onclick="installPWA()">📲 Installer l'app</button>
   <button id="pwa-notif-btn" onclick="askNotifPermission()" style="display:block;width:calc(100% - 32px);margin:4px 16px;padding:8px 12px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.15);border-radius:12px;font-size:.78rem;font-weight:600;cursor:pointer;text-align:center;">🔔 Activer les notifications</button>
-  <!-- Sélecteur d'espace de travail : Milou Dogs / Milou Pets -->
+  <!-- Sélecteur d'espace de travail : Milou Dogs / Milou Compagnie -->
   <div class="ws-switch">
     <button id="ws-dogs" class="ws-btn active" onclick="setWorkspace('dogs')">🐕 Milou Dogs</button>
-    <button id="ws-pets" class="ws-btn" onclick="setWorkspace('pets')">🐾 Milou Pets</button>
+    <button id="ws-pets" class="ws-btn" onclick="setWorkspace('pets')">🐾 Milou Compagnie</button>
   </div>
   <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:0 16px 4px;">
     <span id="nav-reorder-hint" style="display:none;font-size:.66rem;color:var(--soleil,#E8A84C);font-weight:600;">Glissez pour ranger</span>
@@ -345,7 +345,7 @@ function ejsSendRefuse(r, messageRefus) {
   <button class="nav-item" onclick="show('site-images',this);loadSiteImages();"><span class="ico">🖼️</span> Images du site</button>
   </div><!-- /nav-grp-dogs -->
   <div id="nav-grp-pets" style="display:none;">
-  <div class="nav-sep">Milou Pets</div>
+  <div class="nav-sep">Milou Compagnie</div>
   <button class="nav-item" onclick="show('milou-pets',this);loadMilouPets();mpShowSection('all');" id="nav-milou-pets"><span class="ico">📊</span> Tableau Pets <span id="mp-nav-badge" style="display:none;background:#7C6FE0;color:#fff;border-radius:20px;padding:1px 7px;font-size:.68rem;font-weight:700;margin-left:4px;"></span></button>
   <button class="nav-item" onclick="show('milou-pets',this);loadMilouPets();mpShowSection('pilotage')"><span class="ico">💰</span> Finances & pilotage</button>
   <button class="nav-item" onclick="show('milou-pets',this);loadMilouPets();mpShowSection('gardiens')"><span class="ico">🛡️</span> Gardiens</button>
@@ -1003,7 +1003,7 @@ function ejsSendRefuse(r, messageRefus) {
   <!-- MILOU PETS (2e projet, app isolée milouPetsAdmin) -->
   <div id="v-milou-pets" class="view">
     <div class="topbar">
-      <h1>🐾 Milou Pets</h1>
+      <h1>🐾 Milou Compagnie</h1>
       <div class="topbar-right">
         <span class="last-sync" id="mp-status">—</span>
         <button class="refresh-btn" onclick="loadMilouPets()">🔄 Actualiser</button>
@@ -1032,7 +1032,7 @@ function ejsSendRefuse(r, messageRefus) {
         <div class="panel-title" style="color:#fff;">📈 Indicateurs marketplace</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:12px;">
           <div style="text-align:center;"><div style="font-size:1.7rem;font-weight:800;color:#FFD86B;" id="mp-k-gmv">0€</div><div style="font-size:.72rem;color:rgba(255,255,255,.7);">GMV — volume total payé</div></div>
-          <div style="text-align:center;"><div style="font-size:1.7rem;font-weight:800;color:#7BE0C0;" id="mp-k-revenu">0€</div><div style="font-size:.72rem;color:rgba(255,255,255,.7);">Revenu Milou Pets (commission + frais)</div></div>
+          <div style="text-align:center;"><div style="font-size:1.7rem;font-weight:800;color:#7BE0C0;" id="mp-k-revenu">0€</div><div style="font-size:.72rem;color:rgba(255,255,255,.7);">Revenu Milou Compagnie (commission + frais)</div></div>
           <div style="text-align:center;"><div style="font-size:1.7rem;font-weight:800;color:#fff;" id="mp-k-conv">—</div><div style="font-size:.72rem;color:rgba(255,255,255,.7);">Conversion demande → payé</div></div>
           <div style="text-align:center;"><div style="font-size:1.7rem;font-weight:800;color:#fff;" id="mp-k-panier">0€</div><div style="font-size:.72rem;color:rgba(255,255,255,.7);">Panier moyen</div></div>
           <div style="text-align:center;"><div style="font-size:1.7rem;font-weight:800;color:#B9F6CA;" id="mp-k-actifs">0</div><div style="font-size:.72rem;color:rgba(255,255,255,.7);">Gardiens actifs (7 j)</div></div>
@@ -1086,7 +1086,7 @@ function ejsSendRefuse(r, messageRefus) {
         </div>
         <div id="mp-broadcast-box" style="display:none;margin-top:12px;padding:14px;border:1.5px solid var(--border);border-radius:12px;background:var(--bg);">
           <div style="font-weight:700;margin-bottom:8px;" id="mp-broadcast-title">Message</div>
-          <input id="mp-broadcast-subject" placeholder="Titre (ex: Nouveauté Milou Pets)" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--bg);color:var(--text);font-family:inherit;">
+          <input id="mp-broadcast-subject" placeholder="Titre (ex: Nouveauté Milou Compagnie)" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--bg);color:var(--text);font-family:inherit;">
           <textarea id="mp-broadcast-body" placeholder="Votre message…" style="width:100%;min-height:70px;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--bg);color:var(--text);font-family:inherit;"></textarea>
           <div style="display:flex;gap:8px;"><button class="refresh-btn" id="mp-broadcast-send" onclick="mpSendBroadcast()" style="background:#7C6FE0;color:#fff;border:none;">Envoyer la notification</button><button class="refresh-btn" onclick="document.getElementById('mp-broadcast-box').style.display='none'">Annuler</button></div>
           <div style="font-size:.72rem;color:var(--muted);margin-top:6px;">La notification apparaît dans la cloche de chaque destinataire sur le site.</div>
@@ -2040,7 +2040,7 @@ function show(id, btn) {
   }
 }
 
-// Bascule entre l'espace Milou Dogs et l'espace Milou Pets
+// Bascule entre l'espace Milou Dogs et l'espace Milou Compagnie
 function setWorkspace(ws) {
   var dogs = ws !== 'pets';
   document.getElementById('nav-grp-dogs').style.display = dogs ? '' : 'none';
@@ -2049,7 +2049,7 @@ function setWorkspace(ws) {
   document.getElementById('ws-pets').classList.toggle('active', !dogs);
   document.querySelector('.sidebar-logo').innerHTML = dogs
     ? '🐾 Milou Dogs<small>Espace admin</small>'
-    : '🐾 Milou Pets<small>Marketplace</small>';
+    : '🐾 Milou Compagnie<small>Marketplace</small>';
   try { localStorage.setItem('ws', ws); } catch(e){}
   if (dogs) {
     show('dashboard', document.querySelector('#nav-grp-dogs .nav-item'));
@@ -5769,7 +5769,7 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
     window._mpAuth.signInWithPopup(provider).then(function(){ loadMilouPets(); }).catch(function(err){
       if(err.code==='auth/popup-blocked'||err.code==='auth/popup-closed-by-user'||err.code==='auth/cancelled-popup-request'){
         window._mpAuth.signInWithRedirect(provider);
-      } else { alert('Connexion Milou Pets impossible : '+err.message); }
+      } else { alert('Connexion Milou Compagnie impossible : '+err.message); }
     });
   };
   window.mpSignOut = function(){ window._mpAuth.signOut().then(loadMilouPets); };
@@ -5779,9 +5779,9 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
     var user = window._mpAuth.currentUser;
     if(!user){
       showGate('<div style="font-size:2.4rem;">🐾</div>'
-        + '<h2 style="margin:8px 0 6px;">Espace Milou Pets</h2>'
+        + '<h2 style="margin:8px 0 6px;">Espace Milou Compagnie</h2>'
         + '<p style="color:var(--muted);font-size:.9rem;margin-bottom:18px;">Connecte-toi avec ton compte Google pour gérer la marketplace.</p>'
-        + '<button class="refresh-btn" style="background:#7C6FE0;color:#fff;border:none;padding:11px 22px;font-size:.9rem;" onclick="mpSignIn()">Se connecter à Milou Pets</button>');
+        + '<button class="refresh-btn" style="background:#7C6FE0;color:#fff;border:none;padding:11px 22px;font-size:.9rem;" onclick="mpSignIn()">Se connecter à Milou Compagnie</button>');
       status('Non connecté');
       return;
     }
@@ -5793,13 +5793,13 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       else {
         showGate('<div style="font-size:2.2rem;">🔑</div>'
           + '<h2 style="margin:8px 0 6px;">Dernière étape (une seule fois)</h2>'
-          + '<p style="color:var(--muted);font-size:.9rem;max-width:520px;margin:0 auto 14px;">Ton compte est connecté mais pas encore déclaré administrateur de Milou Pets. Ajoute ton identifiant ci-dessous dans la base, puis reviens ici.</p>'
+          + '<p style="color:var(--muted);font-size:.9rem;max-width:520px;margin:0 auto 14px;">Ton compte est connecté mais pas encore déclaré administrateur de Milou Compagnie. Ajoute ton identifiant ci-dessous dans la base, puis reviens ici.</p>'
           + '<div style="background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:12px;margin:0 auto 14px;max-width:520px;">'
           +   '<div style="font-size:.74rem;color:var(--muted);margin-bottom:4px;">Ton identifiant (UID) à copier :</div>'
           +   '<code style="font-size:.82rem;word-break:break-all;color:#7C6FE0;font-weight:700;">'+esc(user.uid)+'</code>'
           + '</div>'
           + '<p style="font-size:.82rem;color:var(--muted);max-width:520px;margin:0 auto 16px;text-align:left;">'
-          +   '<b>Comment faire :</b><br>1. Ouvre la <a href="https://console.firebase.google.com/project/milou-pets/database/milou-pets-default-rtdb/data" target="_blank" style="color:#7C6FE0;">base Milou Pets</a><br>'
+          +   '<b>Comment faire :</b><br>1. Ouvre la <a href="https://console.firebase.google.com/project/milou-pets/database/milou-pets-default-rtdb/data" target="_blank" style="color:#7C6FE0;">base Milou Compagnie</a><br>'
           +   '2. Sous <code>milouPets</code>, crée un nœud <code>admins</code><br>'
           +   '3. Ajoute une clé = ton UID ci-dessus, valeur = <code>true</code><br>'
           +   '4. Reviens ici et clique « J\'ai terminé »</p>'
@@ -5808,12 +5808,12 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
         status('Accès en attente');
       }
     }).catch(function(e){
-      showGate('<p style="color:var(--rouge);">Erreur de connexion à Milou Pets : '+esc(e.message)+'</p><button class="refresh-btn" onclick="loadMilouPets()">Réessayer</button>');
+      showGate('<p style="color:var(--rouge);">Erreur de connexion à Milou Compagnie : '+esc(e.message)+'</p><button class="refresh-btn" onclick="loadMilouPets()">Réessayer</button>');
       status('Erreur');
     });
   };
 
-  // ── Helpers d'affichage Milou Pets ──
+  // ── Helpers d'affichage Milou Compagnie ──
   var MP_NAC = { lapin:'🐰 Lapin', rongeur:'🐹 Rongeur', furet:'🦦 Furet', tortue:'🐢 Tortue/reptile', perroquet:'🦜 Perroquet', oiseaux:'🐦 Oiseaux', aquarium:'🐠 Aquarium' };
   var MP_PETEMOJI = { chien:'🐶', chat:'🐱', lapin:'🐰', rongeur:'🐹', furet:'🦦', tortue:'🐢', perroquet:'🦜', oiseaux:'🐦', aquarium:'🐠' };
   var MP_SVCL = { pension:'🏠 Pension', garderie:'☀️ Garderie', promenade:'🦮 Promenade', visite:'🏡 Visite', chat:'🐱 Chat' };
@@ -5838,13 +5838,16 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       ? '<img src="'+g.photoUrl+'" class="zoomable" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid var(--lav-d);cursor:zoom-in;flex-shrink:0;">'
       : '<div style="width:60px;height:60px;border-radius:50%;background:var(--lav-l);display:flex;align-items:center;justify-content:center;font-size:1.7rem;flex-shrink:0;">'+(g.emoji||'🐶')+'</div>';
 
-    // Bandeau statut
+    // Bandeau statut — 2 choses distinctes :
+    //  🛡️ PROFIL = validé par l'admin → le gardien apparaît sur le site
+    //  🪪 PIÈCE D'IDENTITÉ = document envoyé/contrôlé (étape de la vérification)
     var chips = '';
-    chips += g.verifie ? mpChip('🛡️ Vérifié','#E3F5EC','#1E9E6A') : mpChip('⏳ En attente','#FFF3D6','#9a6a00');
+    chips += g.verifie ? mpChip('🛡️ Profil en ligne','#E3F5EC','#1E9E6A') : mpChip('⏳ Profil à valider','#FFF3D6','#9a6a00');
+    if(g.idStatus==='valide')      chips += mpChip('🪪 Pièce validée','#E3F5EC','#1E9E6A');
+    else if(g.idStatus==='soumis') chips += mpChip('🪪 Pièce reçue — à contrôler','#E7F0FF','#1E5FBF');
+    else                           chips += mpChip('🪪 Pièce manquante','#FDECEA','#c0392b');
     if(g.premium) chips += mpChip('⭐ Premium','#FFF3D6','#C77700');
-    chips += g.chargesEnabled ? mpChip('💳 Paiements actifs','#E3F5EC','#1E9E6A') : mpChip('💳 Paiements off','#F3F0FA','#6B52B7');
-    if(g.idStatus==='soumis') chips += mpChip('📄 Pièce reçue','#E7F0FF','#1E5FBF');
-    else if(g.idStatus==='valide') chips += mpChip('📄 ID validée','#E3F5EC','#1E9E6A');
+    chips += g.chargesEnabled ? mpChip('💳 Paiements actifs','#E3F5EC','#1E9E6A') : mpChip('💳 Paiements non activés','#F3F0FA','#6B52B7');
     if(u.bloque===true) chips += mpChip('🚫 Bloqué','#FDECEA','#c0392b');
 
     // Grille infos privées (admin voit tout)
@@ -5896,11 +5899,17 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
 
     // Actions
     var acts = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">';
-    if(g.idStatus==='soumis'||g.idStatus==='valide') acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;" onclick="mpViewId(\''+g.id+'\')">📄 Voir la pièce d\'identité</button>';
+    if(g.idStatus==='soumis'||g.idStatus==='valide') acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;" onclick="mpViewId(\''+g.id+'\')">🪪 Voir la pièce d\'identité</button>';
     acts += g.verifie
-      ? '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;" onclick="mpValider(\''+g.id+'\',false)">Retirer la validation</button>'
-      : '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#7C6FE0;color:#fff;border:none;" onclick="mpValider(\''+g.id+'\',true)">✓ Valider le gardien</button>';
-    acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;" onclick="mpToggleId(\''+g.id+'\')">'+(g.idStatus==='valide'?'Marquer ID non validée':'Marquer ID validée')+'</button>';
+      ? '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;" onclick="mpValider(\''+g.id+'\',false)">Dépublier le profil</button>'
+      : '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#7C6FE0;color:#fff;border:none;" onclick="mpValider(\''+g.id+'\',true)">✓ Publier le profil sur le site</button>';
+    acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;" onclick="mpToggleId(\''+g.id+'\')">'+(g.idStatus==='valide'?'🪪 Marquer pièce non validée':'🪪 Marquer pièce validée')+'</button>';
+    // ── Relances en 1 clic (notification dans la cloche du gardien) ──
+    if(g.idStatus!=='valide' && g.idStatus!=='soumis')
+      acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#FFF3D6;color:#9a6a00;border:1.5px solid #e8c97a;" onclick="mpRelance(\''+g.id+'\',\'id\',\''+esc(prenom)+'\')">📩 Relancer : pièce d\'identité</button>';
+    if(!g.chargesEnabled)
+      acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#FFF3D6;color:#9a6a00;border:1.5px solid #e8c97a;" onclick="mpRelance(\''+g.id+'\',\'pay\',\''+esc(prenom)+'\')">📩 Relancer : activer paiements</button>';
+    acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;" onclick="mpRelance(\''+g.id+'\',\'libre\',\''+esc(prenom)+'\')">✉️ Message libre</button>';
     var gBlocked = u.bloque === true;
     acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;'+(gBlocked?'background:#1E9E6A;color:#fff;border:none;':'background:#fff3f3;color:#c0392b;border:1.5px solid #c0392b;')+'" onclick="mpSetBlock(\''+g.id+'\','+(!gBlocked)+',\''+esc(prenom)+'\')">'+(gBlocked?'✅ Débloquer':'🚫 Bloquer')+'</button>';
     acts += '<button class="btn-delete" style="padding:6px 12px;font-size:.78rem;margin-left:auto;" onclick="mpDeleteUser(\''+g.id+'\',\'gardien\',\''+esc(prenom)+'\')">🗑️ Supprimer définitivement</button>';
@@ -6291,6 +6300,30 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       status('Erreur');
     });
   }
+
+  // ── Relance en 1 clic : envoie une notification (cloche) au gardien ──
+  window.mpRelance = function(uid, type, prenom){
+    var MSGS = {
+      id:  { title:'🪪 Pièce d\'identité manquante',
+             body:'Bonjour '+prenom+' ! Pour publier votre profil et recevoir des demandes, envoyez votre pièce d\'identité depuis votre espace gardien (2 minutes).',
+             link:'espace-gardien.html' },
+      pay: { title:'💳 Activez vos paiements',
+             body:'Bonjour '+prenom+' ! Activez vos paiements (identité + RIB, 2 minutes) pour pouvoir accepter des gardes et recevoir votre argent.',
+             link:'activer-paiements.html' }
+    };
+    var m = MSGS[type];
+    if(!m){
+      var txt = prompt('Message à envoyer à '+prenom+' (il le recevra dans sa cloche 🔔) :');
+      if(!txt || !txt.trim()) return;
+      m = { title:'💬 Message de l\'équipe Milou Compagnie', body:txt.trim().slice(0,300), link:'espace-gardien.html' };
+    }
+    window._mpDb.ref('milouPets/notifications/'+uid).push({
+      type:'admin', title:m.title, body:m.body, link:m.link,
+      at:firebase.database.ServerValue.TIMESTAMP, read:false
+    }).then(function(){
+      if(window.showToast) showToast('📩 Relance envoyée à '+prenom);
+    }).catch(function(e){ alert('Envoi impossible : '+e.message); });
+  };
 
   // Bascule l'état "ID validée" d'un gardien
   window.mpToggleId = function(id){
