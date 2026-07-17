@@ -3507,7 +3507,7 @@ function renderDevisHistory() {
       + entries.map(function(e){
         var k=e[0], d=e[1];
         var pay = payments[k]||'pending';
-        var num = d.numFacture || '<span style="color:var(--muted);font-weight:400;">à l\'ouverture</span>';
+        var num = (typeof factureNumFor==='function') ? factureNumFor(k) : k;
         var statusBadge = pay==='paid'
           ? '<span style="background:#E8F5E9;color:#2E7D32;border-radius:20px;padding:3px 10px;font-size:.7rem;font-weight:700;border:1px solid #A5D6A7;">✅ Réglée</span>'
           : pay==='partial'
@@ -3548,24 +3548,37 @@ function setFactureTotal(key, val) {
   _db.ref('devis_history/'+key+'/totalFacture').set(val || null).then(function(){ if(window.showToast) showToast('Prix de la facture enregistre'); });
 }
 window.setFactureTotal = setFactureTotal;
-function ensureFactureNum(key, cb) {
-  var d = (window._devisHistory||{})[key] || {};
-  if (d.numFacture) { cb(d.numFacture); return; }
-  var year = new Date().getFullYear();
-  _db.ref('facture_seq/'+year).transaction(function(cur){ return (cur||0)+1; }, function(err, committed, snap){
-    var num;
-    if (err || !committed || !snap) { num = 'MDP-'+year+'-'+String(Date.now()).slice(-4); }
-    else { num = 'MDP-'+year+'-'+('000'+snap.val()).slice(-4); }
-    _db.ref('devis_history/'+key+'/numFacture').set(num).catch(function(){});
-    if (window._devisHistory && window._devisHistory[key]) window._devisHistory[key].numFacture = num;
-    cb(num);
-  });
+
+// Numéro de facture = RANG (position) de la facture dans l'ordre chronologique.
+// On part de 1 et on monte. Si on supprime une facture, tous les numéros suivants
+// se re-décalent automatiquement (la numérotation est recalculée à chaque affichage).
+function _factureTs(k) {
+  var dh = window._devisHistory || {};
+  var d = dh[k] || {};
+  var m = String(k).match(/(\d{10,})/);           // timestamp inclus dans la clé (devis_<ms>_...)
+  if (m) return parseInt(m[1], 10);
+  if (d.date) { var p = String(d.date).split('/'); if (p.length === 3) return Date.parse(p[2]+'-'+p[1]+'-'+p[0]) || 0; }
+  return 0;
 }
+function factureRank(key) {
+  var dh = window._devisHistory || {};
+  var keys = Object.keys(dh).sort(function(a, b){ var ta=_factureTs(a), tb=_factureTs(b); return ta!==tb ? ta-tb : (a<b?-1:1); });
+  var idx = keys.indexOf(key);
+  return idx >= 0 ? idx + 1 : keys.length;
+}
+function factureNumFor(key) {
+  var d = (window._devisHistory||{})[key] || {};
+  var year = new Date().getFullYear();
+  var mm = String(d.date||'').match(/(\d{4})/);   // année de la facture si connue
+  if (mm) year = mm[1];
+  return 'MDP-' + year + '-' + ('000' + factureRank(key)).slice(-4);
+}
+
 function genFacture(key) {
   var d = (_devisHistory||{})[key];
   if (!d) { showToast('Devis introuvable'); return; }
   var win = window.open('','_blank');
-  ensureFactureNum(key, function(num){ _renderFacture(key, num, win); });
+  _renderFacture(key, factureNumFor(key), win);
 }
 function _renderFacture(key, num, win) {
   var d = (_devisHistory||{})[key];
