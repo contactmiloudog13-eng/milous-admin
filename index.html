@@ -673,6 +673,8 @@ function ejsSendRefuse(r, messageRefus) {
           </select></div>
           <div><label class="f-lbl">🚗 Supplément déplacement (récupération du chien)</label>
           <input id="f-deplacement" type="number" min="0" step="1" value="" oninput="calcDevis()" placeholder="Ex : 10 € — laisser vide si aucun" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.85rem;background:var(--bg);color:var(--text);"></div>
+          <div><label class="f-lbl">💶 Prix personnalisé (optionnel — remplace le calcul auto)</label>
+          <input id="f-prix-manuel" type="number" min="0" step="1" value="" oninput="calcDevis()" placeholder="Laisser vide pour le calcul automatique" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.85rem;background:var(--bg);color:var(--text);"></div>
           <div style="background:var(--lav-l);border-radius:12px;padding:16px;">
             <div id="f-detail" style="font-size:.82rem;color:var(--lav-d);line-height:1.9;margin-bottom:8px;"></div>
             <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">TOTAL</div>
@@ -3026,14 +3028,18 @@ function calcDevis() {
         brut = sousNuits + extraJournee * T.garderie + extraDemi * T.demi;
       }
     } else if (service === 'garderie') {
-      lines.push('☀️ Garderie journée' + chiensSuffix + ' | ' + T.garderie + '€' + chiensX + (nb > 1 ? ' = ' + (T.garderie * nb) + '€' : ''));
-      brut = T.garderie;
+      // Garderie de JOUR : on compte le nombre de journées sur la période choisie (inclus).
+      var joursG = (d1 && d2) ? Math.max(1, nuits + 1) : 1;
+      lines.push('☀️ Garderie journée' + chiensSuffix + ' | ' + T.garderie + '€' + (joursG > 1 ? ' × ' + joursG + ' j' : '') + chiensX + ' = ' + (T.garderie * joursG * nb) + '€');
+      brut = T.garderie * joursG;
     } else if (service === 'demi') {
-      lines.push('🌤️ Demi-journée' + chiensSuffix + ' | ' + T.demi + '€' + chiensX + (nb > 1 ? ' = ' + (T.demi * nb) + '€' : ''));
-      brut = T.demi;
+      var joursD = (d1 && d2) ? Math.max(1, nuits + 1) : 1;
+      lines.push('🌤️ Demi-journée' + chiensSuffix + ' | ' + T.demi + '€' + (joursD > 1 ? ' × ' + joursD + ' j' : '') + chiensX + ' = ' + (T.demi * joursD * nb) + '€');
+      brut = T.demi * joursD;
     } else if (service === 'promenade') {
-      lines.push('🦮 Promenade' + chiensSuffix + ' | ' + T.promenade + '€' + chiensX + (nb > 1 ? ' = ' + (T.promenade * nb) + '€' : ''));
-      brut = T.promenade;
+      var joursP = (d1 && d2) ? Math.max(1, nuits + 1) : 1;
+      lines.push('🦮 Promenade' + chiensSuffix + ' | ' + T.promenade + '€' + (joursP > 1 ? ' × ' + joursP : '') + chiensX + ' = ' + (T.promenade * joursP * nb) + '€');
+      brut = T.promenade * joursP;
     }
 
     let sousTotal = brut * nb;
@@ -3044,6 +3050,15 @@ function calcDevis() {
       sousTotal = sousTotal - remise;
     }
     total = sousTotal;
+  }
+
+  // ── PRIX PERSONNALISÉ (optionnel) : remplace le total calculé automatiquement ──
+  var pmEl = document.getElementById('f-prix-manuel');
+  var pm = (pmEl && pmEl.value.trim() !== '') ? parseFloat(pmEl.value) : NaN;
+  if (!isNaN(pm) && pm >= 0) {
+    var svcLbl = {pension:'🏠 Pension complète',garderie:'☀️ Garderie journée',demi:'🌤️ Demi-journée',promenade:'🦮 Promenade',toilettage:'🛁 Toilettage'}[service] || 'Prestation';
+    lines = [svcLbl + ' | ' + pm + '€'];
+    total = pm;
   }
 
   if (deplacement > 0) {
@@ -3194,6 +3209,9 @@ function openDevisFromResa(idx) {
   if (hd[0]) { document.getElementById('f-heure-fin-h').value = hd[0]; document.getElementById('f-heure-fin-m').value = hd[1]||'00'; }
   const nb = (r['Nombre de chiens']||'1').replace(/[^0-9]/g,'')||'1';
   document.getElementById('f-nbchiens').value = Math.min(parseInt(nb),3);
+  // Repart d'un calcul propre : pas de prix perso ni de déplacement hérités
+  var pmR=document.getElementById('f-prix-manuel'); if(pmR) pmR.value='';
+  var depR=document.getElementById('f-deplacement'); if(depR) depR.value='';
   calcDevis();
   window._currentResaKey = getResaKey(r);
   genDevisManuel();
