@@ -3489,7 +3489,7 @@ function renderDevisHistory() {
       + entries.map(function(e){
         var k=e[0], d=e[1];
         var pay = payments[k]||'pending';
-        var num = 'MDP-'+k.replace(/[^0-9]/g,'').substring(0,8);
+        var num = d.numFacture || '<span style="color:var(--muted);font-weight:400;">à l\'ouverture</span>';
         var statusBadge = pay==='paid'
           ? '<span style="background:#E8F5E9;color:#2E7D32;border-radius:20px;padding:3px 10px;font-size:.7rem;font-weight:700;border:1px solid #A5D6A7;">✅ Réglée</span>'
           : pay==='partial'
@@ -3501,7 +3501,7 @@ function renderDevisHistory() {
           +'<td><b>'+d.prenom+'</b>'+(d.tel?'<br><span style="font-size:.7rem;color:var(--muted)">'+d.tel+'</span>':'')+'</td>'
           +'<td>🐕 '+d.chien+'</td>'
           +'<td>'+d.service+'</td>'
-          +'<td style="font-weight:700;color:var(--lav-d);">'+d.total+'</td>'
+          +'<td><input data-k="'+k+'" value="'+String(d.totalFacture||d.total||'').replace(/"/g,'&quot;')+'" onchange="setFactureTotal(this.dataset.k,this.value)" title="Prix qui apparaît sur la facture (modifiable)" style="width:82px;font-weight:700;color:var(--lav-d);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:.8rem;background:'+(d.totalFacture?'#FFF8E1':'#fff')+';"></td>'
           +'<td>'+statusBadge+'</td>'
           +'<td style="display:flex;gap:6px;"><button data-k="'+k+'" onclick="genFacture(this.dataset.k)" style="background:var(--lav-d);color:#fff;border:none;padding:5px 12px;border-radius:20px;font-size:.75rem;font-weight:600;cursor:pointer;">🖨️ Ouvrir</button><button data-k="'+k+'" onclick="deleteDevis(this.dataset.k)" style="background:var(--rouge);color:#fff;border:none;padding:5px 10px;border-radius:20px;font-size:.75rem;font-weight:600;cursor:pointer;">🗑️</button></td>'
           +'</tr>';
@@ -3523,16 +3523,42 @@ function deleteDevis(key) {
   showToast('Devis supprime');
 }
 
+function setFactureTotal(key, val) {
+  val = (val||'').trim();
+  if (!window._devisHistory) window._devisHistory = {};
+  if (window._devisHistory[key]) window._devisHistory[key].totalFacture = val;
+  _db.ref('devis_history/'+key+'/totalFacture').set(val || null).then(function(){ if(window.showToast) showToast('Prix de la facture enregistre'); });
+}
+window.setFactureTotal = setFactureTotal;
+function ensureFactureNum(key, cb) {
+  var d = (window._devisHistory||{})[key] || {};
+  if (d.numFacture) { cb(d.numFacture); return; }
+  var year = new Date().getFullYear();
+  _db.ref('facture_seq/'+year).transaction(function(cur){ return (cur||0)+1; }, function(err, committed, snap){
+    var num;
+    if (err || !committed || !snap) { num = 'MDP-'+year+'-'+String(Date.now()).slice(-4); }
+    else { num = 'MDP-'+year+'-'+('000'+snap.val()).slice(-4); }
+    _db.ref('devis_history/'+key+'/numFacture').set(num).catch(function(){});
+    if (window._devisHistory && window._devisHistory[key]) window._devisHistory[key].numFacture = num;
+    cb(num);
+  });
+}
 function genFacture(key) {
   var d = (_devisHistory||{})[key];
-  if (!d) { showToast('\u26a0\ufe0f Devis introuvable'); return; }
+  if (!d) { showToast('Devis introuvable'); return; }
+  var win = window.open('','_blank');
+  ensureFactureNum(key, function(num){ _renderFacture(key, num, win); });
+}
+function _renderFacture(key, num, win) {
+  var d = (_devisHistory||{})[key];
+  if (!d) { if(win) win.close(); return; }
   var pay = (window._payments||{})[key] || (window._cachedStatuses||{})[key] || 'pending';
   var isPaid = pay==='paid', isPartial = pay==='partial' || pay==='acompte';
-  var payLabel = isPaid ? '✅ Réglée' : isPartial ? '🟡 Acompte versé' : '🔴 En attente de règlement';
+  var payLabel = isPaid ? '✅ Reglee' : isPartial ? '🟡 Acompte verse' : '🔴 En attente de reglement';
   var payBg = isPaid ? '#E8F5E9' : isPartial ? '#FFF8E1' : '#FFF0EE';
   var payColor = isPaid ? '#2E7D32' : isPartial ? '#F57F17' : '#C0392B';
   var payBorder = isPaid ? '#A5D6A7' : isPartial ? '#FFE082' : '#FFCDD2';
-  var num = 'MDP-' + key.replace(/[^0-9]/g,'').substring(0,8);
+  var totalAff = (d.totalFacture && String(d.totalFacture).trim()) ? d.totalFacture : d.total;
   var dateStr = d.date || new Date().toLocaleDateString('fr-FR');
   var svcLabel = {pension:'Pension complète',garderie:'Garderie journée',demi:'Demi-journée',promenade:'Promenade',toilettage:'Toilettage'}[d.service] || d.service || 'Prestation';
   // Détail : HTML sauvegardé sinon reconstruit depuis le texte WhatsApp
@@ -3545,15 +3571,21 @@ function genFacture(key) {
   var telRow = d.tel ? '<div class="row"><span class="lbl">Téléphone</span><span class="val">'+formatTel(d.tel)+'</span></div>' : '';
   var arrRow = d.dateDebut ? '<div class="row"><span class="lbl">Arrivée</span><span class="val">'+formatDate(d.dateDebut)+(d.heureArrivee ? ' à '+d.heureArrivee : '')+'</span></div>' : '';
   var depRow = d.dateFin ? '<div class="row"><span class="lbl">Départ</span><span class="val">'+formatDate(d.dateFin)+(d.heureDepart ? ' à '+d.heureDepart : '')+'</span></div>' : '';
-  var win = window.open('','_blank');
   var h = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">';
   h += '<title>Facture '+num+'</title>';
   h += '<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">';
   h += '<style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:"DM Sans",sans-serif;background:#FAF6F0;display:flex;justify-content:center;padding:40px 16px;}.card{position:relative;background:#fff;border-radius:20px;padding:40px;max-width:520px;width:100%;box-shadow:0 4px 32px rgba(74,63,114,.13);}.close-x{position:absolute;top:16px;right:18px;width:34px;height:34px;border:none;background:#F0EDE8;color:#6B6760;border-radius:50%;font-size:1.05rem;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:background .2s;}.close-x:hover{background:#E0DAD0;color:#2C2A26;}.head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;gap:16px;}.logo{font-family:"Playfair Display",serif;color:#4A3F72;font-size:1.5rem;}.logo-sub{font-size:.75rem;color:#6B6760;margin-top:2px;}.inv-label{font-size:.62rem;text-transform:uppercase;letter-spacing:.14em;color:#9B96B0;text-align:right;}.inv-num{font-family:"Playfair Display",serif;font-size:1.2rem;color:#4A3F72;text-align:right;margin-top:2px;}.inv-date{font-size:.75rem;color:#6B6760;text-align:right;margin-top:2px;}.title{font-family:"Playfair Display",serif;font-size:1.1rem;color:#4A3F72;border-bottom:2px solid #E8E4F0;padding-bottom:10px;margin-bottom:20px;}.row{display:flex;justify-content:space-between;font-size:.88rem;margin-bottom:10px;}.lbl{color:#6B6760;}.val{font-weight:600;color:#2C2A26;}.sep{border:none;border-top:1px solid #E5E0D8;margin:20px 0;}.detail-box{background:#F3F0F8;border-radius:12px;padding:6px 18px;}.inv-item{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:10px 0;border-bottom:1px dashed #D9D2EC;font-size:.88rem;color:#4A3F72;}.inv-item:last-child{border-bottom:none;}.inv-item .d{flex:1;color:#6B6760;}.inv-item .amt{font-weight:700;white-space:nowrap;}.inv-item.full{color:#5A7A4A;font-weight:600;}.inv-item.sep{border-top:1px solid #C5BBE0;margin-top:4px;padding-top:14px;}.total-block{display:flex;justify-content:space-between;align-items:center;margin-top:20px;}.total-lbl{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#6B6760;}.total-val{font-family:"Playfair Display",serif;font-size:2.4rem;color:#4A3F72;}.status-wrap{text-align:center;margin-top:18px;}.status-pill{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:30px;font-size:.82rem;font-weight:700;border:1.5px solid;}.footer{font-size:.72rem;color:#9B96B0;text-align:center;margin-top:20px;line-height:1.9;border-top:1px solid #E5E0D8;padding-top:16px;}.btns{display:flex;gap:10px;margin-top:28px;flex-wrap:wrap;}.btn{flex:1;min-width:120px;padding:13px 8px;border-radius:30px;font-size:.85rem;font-weight:600;cursor:pointer;border:none;text-align:center;font-family:"DM Sans",sans-serif;}.btn-pdf{background:#4A3F72;color:#fff;}.btn-close{background:#F0EDE8;color:#4A3F72;}@media print{.btns,.close-x{display:none;}body{background:#fff;padding:0;}.card{box-shadow:none;border-radius:0;padding:32px;}}</style>';
   h += '</head><body><div class="card">';
   h += '<button class="close-x" onclick="window.close()" title="Fermer">✕</button>';
-  h += '<div class="head"><div><div class="logo">Milou Dogs Provence</div><div class="logo-sub">07 77 23 40 88</div></div>';
-  h += '<div><div class="inv-label">Facture</div><div class="inv-num">'+num+'</div><div class="inv-date">'+dateStr+'</div></div></div>';
+  h += '<div class="head"><div><div class="logo">Milou Dogs Provence</div><div class="logo-sub">Lilou Houssard · Entrepreneur individuel</div></div>';
+  h += '<div><div class="inv-label">Facture N°</div><div class="inv-num">'+num+'</div><div class="inv-date">Émise le '+dateStr+'</div></div></div>';
+  // Bloc identités émetteur / client (mentions obligatoires)
+  h += '<div style="display:flex;justify-content:space-between;gap:20px;margin-bottom:22px;flex-wrap:wrap;">'
+    + '<div style="font-size:.74rem;color:#6B6760;line-height:1.6;max-width:48%;"><div style="font-weight:700;color:#4A3F72;margin-bottom:2px;">Prestataire</div>'
+    +   'Lilou Houssard (EI)<br>Milou Dogs Provence<br>340 chemin de la Cacholle<br>13140 Miramas<br>SIRET&nbsp;: 105&nbsp;162&nbsp;259&nbsp;00011<br>Tél&nbsp;: 07&nbsp;77&nbsp;23&nbsp;40&nbsp;88</div>'
+    + '<div style="font-size:.74rem;color:#6B6760;line-height:1.6;max-width:48%;text-align:right;"><div style="font-weight:700;color:#4A3F72;margin-bottom:2px;">Facturé à</div>'
+    +   (d.prenom||'Client')+(d.tel?'<br>'+formatTel(d.tel):'')+'</div>'
+    + '</div>';
   h += '<div class="title">Détail de la prestation</div>';
   h += '<div class="row"><span class="lbl">Client</span><span class="val">'+d.prenom+'</span></div>';
   h += '<div class="row"><span class="lbl">Chien</span><span class="val">'+d.chien+'</span></div>';
@@ -3563,9 +3595,10 @@ function genFacture(key) {
   h += depRow;
   h += '<hr class="sep">';
   h += '<div class="detail-box">'+(detail?detailToRows(detail):'<div class="inv-item full">'+svcLabel+'</div>')+'</div>';
-  h += '<div class="total-block"><div class="total-lbl">Total à régler</div><div class="total-val">'+d.total+'</div></div>';
+  h += '<div class="total-block"><div class="total-lbl">Total à régler</div><div class="total-val">'+totalAff+'</div></div>';
+  h += '<div style="text-align:right;font-size:.72rem;color:#9B96B0;margin-top:2px;">TVA non applicable, art. 293 B du CGI</div>';
   h += '<div class="status-wrap"><span class="status-pill" style="background:'+payBg+';color:'+payColor+';border-color:'+payBorder+';">'+payLabel+'</span></div>';
-  h += '<div class="footer">SIRET 10516225900011 &nbsp;·&nbsp; 340 chemin de la Cacholle, 13140 Miramas<br>Paiement à la fin du séjour &nbsp;·&nbsp; Espèces · Virement · PayPal &nbsp;·&nbsp; Merci de votre confiance 🐾</div>';
+  h += '<div class="footer" style="text-align:left;"><b style=\"color:#4A3F72;\">Conditions de règlement&nbsp;:</b> paiement à réception de la facture (à la fin du séjour). Moyens acceptés&nbsp;: espèces, virement, PayPal.<br>En cas de retard de paiement&nbsp;: pénalités au taux de 3 fois le taux d’intérêt légal, sans rappel préalable. Aucun escompte pour paiement anticipé.<br><b style=\"color:#4A3F72;\">TVA non applicable, art.&nbsp;293&nbsp;B du CGI</b> (franchise en base — micro-entreprise).<br>Activité&nbsp;: garde, promenade et garderie de chiens — titulaire de l’ACACED.<br>Lilou Houssard (EI) · Milou Dogs Provence · 340 chemin de la Cacholle, 13140 Miramas · SIRET 105&nbsp;162&nbsp;259&nbsp;00011<br><span style=\"color:#9B96B0;\">Merci de votre confiance 🐾</span></div>';
   h += '<div class="btns">';
   h += '<button class="btn btn-pdf" onclick="window.print()">🖨️ Enregistrer en PDF</button>';
   h += '<button class="btn btn-close" onclick="window.close()">✕ Fermer</button>';
