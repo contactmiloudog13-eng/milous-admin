@@ -1073,7 +1073,7 @@ function ejsSendRefuse(r, messageRefus) {
         <div class="panel" style="text-align:center;"><div style="font-size:1.8rem;font-weight:800;color:#7C6FE0;" id="mp-s-gardiens">0</div><div style="font-size:.76rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Gardiens</div></div>
         <div class="panel" style="text-align:center;"><div style="font-size:1.8rem;font-weight:800;color:#E8A84C;" id="mp-s-premium">0</div><div style="font-size:.76rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Premium ⭐</div></div>
         <div class="panel" style="text-align:center;"><div style="font-size:1.8rem;font-weight:800;color:#4A3F8F;" id="mp-s-resas">0</div><div style="font-size:.76rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Résa payées</div></div>
-        <div class="panel" style="text-align:center;background:linear-gradient(135deg,#2EBD8E,#7BE0C0);"><div style="font-size:1.8rem;font-weight:800;color:#fff;" id="mp-s-commission">0€</div><div style="font-size:.76rem;color:#eafff7;text-transform:uppercase;letter-spacing:.04em;">Ta commission (20%)</div></div>
+        <div class="panel" style="text-align:center;background:linear-gradient(135deg,#2EBD8E,#7BE0C0);"><div style="font-size:1.8rem;font-weight:800;color:#fff;" id="mp-s-commission">0€</div><div style="font-size:.76rem;color:#eafff7;text-transform:uppercase;letter-spacing:.04em;">Ton revenu plateforme</div></div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;"><div class="panel" style="text-align:center;"><div style="font-size:1.4rem;font-weight:800;color:#7C6FE0;" id="mp-s-clients">0</div><div style="font-size:.74rem;color:var(--muted);">Clients</div></div>
         <div class="panel" style="text-align:center;"><div style="font-size:1.4rem;font-weight:800;color:#E65100;" id="mp-s-attente">0</div><div style="font-size:.74rem;color:var(--muted);">À valider</div></div>
@@ -1086,7 +1086,7 @@ function ejsSendRefuse(r, messageRefus) {
         <div class="panel-title" style="color:#fff;">📈 Indicateurs marketplace</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:12px;">
           <div style="text-align:center;"><div style="font-size:1.7rem;font-weight:800;color:#FFD86B;" id="mp-k-gmv">0€</div><div style="font-size:.72rem;color:rgba(255,255,255,.7);">GMV — volume total payé</div></div>
-          <div style="text-align:center;"><div style="font-size:1.7rem;font-weight:800;color:#7BE0C0;" id="mp-k-revenu">0€</div><div style="font-size:.72rem;color:rgba(255,255,255,.7);">Revenu Milou Compagnie (commission + frais)</div></div>
+          <div style="text-align:center;"><div style="font-size:1.7rem;font-weight:800;color:#7BE0C0;" id="mp-k-revenu">0€</div><div style="font-size:.72rem;color:rgba(255,255,255,.7);">Revenu Milou Compagnie (marge + commission)</div></div>
           <div style="text-align:center;"><div style="font-size:1.7rem;font-weight:800;color:#fff;" id="mp-k-conv">—</div><div style="font-size:.72rem;color:rgba(255,255,255,.7);">Conversion demande → payé</div></div>
           <div style="text-align:center;"><div style="font-size:1.7rem;font-weight:800;color:#fff;" id="mp-k-panier">0€</div><div style="font-size:.72rem;color:rgba(255,255,255,.7);">Panier moyen</div></div>
           <div style="text-align:center;"><div style="font-size:1.7rem;font-weight:800;color:#B9F6CA;" id="mp-k-actifs">0</div><div style="font-size:.72rem;color:rgba(255,255,255,.7);">Gardiens actifs (7 j)</div></div>
@@ -1100,7 +1100,7 @@ function ejsSendRefuse(r, messageRefus) {
         <!-- Finances consolidées -->
         <div style="font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:6px 0 8px;">Où est l'argent ?</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:18px;">
-          <div class="panel" style="text-align:center;background:linear-gradient(135deg,#2EBD8E,#7BE0C0);"><div style="font-size:1.5rem;font-weight:800;color:#fff;" id="mp-f-revenu">0€</div><div style="font-size:.72rem;color:#eafff7;">Ton revenu net (commission + frais)</div></div>
+          <div class="panel" style="text-align:center;background:linear-gradient(135deg,#2EBD8E,#7BE0C0);"><div style="font-size:1.5rem;font-weight:800;color:#fff;" id="mp-f-revenu">0€</div><div style="font-size:.72rem;color:#eafff7;">Ton revenu net (marge + commission)</div></div>
           <div class="panel" style="text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#9a6a00;" id="mp-f-sequestre">0€</div><div style="font-size:.72rem;color:var(--muted);">🔒 En séquestre (gardes en cours)</div></div>
           <div class="panel" style="text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#1E9E6A;" id="mp-f-areverser">0€</div><div style="font-size:.72rem;color:var(--muted);">✅ À reverser aux gardiens</div></div>
           <div class="panel" style="text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#4A3F8F;" id="mp-f-verse">0€</div><div style="font-size:.72rem;color:var(--muted);">🏦 Déjà versé</div></div>
@@ -6155,12 +6155,13 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
 
       // Maps
       var USERS={}; userSnap.forEach(function(c){ USERS[c.key]=c.val()||{}; });
+      window._mpUsers = USERS;   // partagé avec mpViewConvo (noms complets dans la modale)
       var PETS={};  petSnap.forEach(function(c){ PETS[c.key]=c.val()||{}; });
       var gardiens=[]; gardSnap.forEach(function(c){ var g=c.val()||{}; g.id=c.key; gardiens.push(g); });
 
       // ── Portefeuilles par gardien (séquestre / disponible / versé) ──
       var WALLETS={};
-      function _mg(r){ return r.montantGardien!=null ? r.montantGardien : Math.round((r.montantTotal||r.total||0)*0.8*100)/100; }
+      function _mg(r){ return r.montantGardien!=null ? r.montantGardien : Math.round((r.montantTotal||r.total||0)*0.85*100)/100; }
       resaSnap.forEach(function(gNode){
         var gid=gNode.key; var w={sequestre:0,disponible:0,verse:0};
         gNode.forEach(function(c){
@@ -6396,12 +6397,19 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
         if(!convos.length){ cvbox.innerHTML='<div style="color:var(--muted);padding:14px;text-align:center;">Aucune conversation.</div>'; }
         else {
           cvbox.innerHTML=convos.map(function(v){
-            var cliName=(USERS[v.clientUid]&&(USERS[v.clientUid].prenom||USERS[v.clientUid].nom))||v.clientNom||'Client';
-            var garName=(function(){var g=null;gardiens.forEach(function(x){if(x.id===v.gardienId)g=x;});return (g&&g.nom)||(USERS[v.gardienId]&&USERS[v.gardienId].prenom)||v.gardienNom||'Gardien';})();
-            var risk=riskyConvos[v._id]?'<span title="Tentative de contact direct" style="margin-left:6px;">⚠️</span>':'';
-            return '<div class="mp-convo-row" data-search="'+esc((cliName+' '+garName).toLowerCase())+'" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="mpViewConvo(\''+v._id+'\',\''+esc(cliName)+' ↔ '+esc(garName)+'\')">'
-              + '<div style="font-size:.86rem;"><b>'+esc(cliName)+'</b> ↔ <b>'+esc(garName)+'</b>'+risk+'</div>'
-              + '<span style="font-size:.74rem;color:var(--lav-d);font-weight:700;">Lire →</span></div>';
+            var cliName=mpFullName(v.clientUid, v.clientNom||v.clientPrenom||'Client');
+            var garName=mpFullName(v.gardienId, (function(){var g=null;gardiens.forEach(function(x){if(x.id===v.gardienId)g=x;});return (g&&g.nom)||v.gardienNom||'Gardien';})());
+            var risky=!!riskyConvos[v._id];
+            var last=v.lastText?('<div style="font-size:.76rem;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px;">💬 '+esc(v.lastText)+'</div>'):'';
+            var when=v.lastAt?('<div style="font-size:.68rem;color:var(--muted);">'+new Date(v.lastAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})+'</div>'):'';
+            var riskBanner=risky?'<div style="font-size:.72rem;font-weight:800;color:#c0392b;background:#FDECEA;border-radius:8px;padding:2px 8px;margin-top:5px;display:inline-block;">⚠️ Tentative de contact direct détectée</div>':'';
+            return '<div class="mp-convo-row" data-search="'+esc((cliName+' '+garName).toLowerCase())+'" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;margin-bottom:6px;border:1px solid '+(risky?'#f3b4ad':'var(--border)')+';border-left:'+(risky?'4px solid #c0392b':'1px solid var(--border)')+';border-radius:10px;background:'+(risky?'#FFF7F6':'#fff')+';cursor:pointer;" onclick="mpViewConvo(\''+v._id+'\',\''+esc(cliName)+' ↔ '+esc(garName)+'\')">'
+              + '<div style="min-width:0;">'
+              +   '<div style="font-size:.84rem;line-height:1.5;"><span style="color:#2456c8;">👤 Client :</span> <b>'+esc(cliName)+'</b><br><span style="color:#1a7a44;">🏠 Gardien :</span> <b>'+esc(garName)+'</b></div>'
+              +   last + riskBanner
+              + '</div>'
+              + '<div style="text-align:right;flex-shrink:0;">'+when+'<span style="font-size:.74rem;color:var(--lav-d);font-weight:700;">Lire →</span></div>'
+              + '</div>';
           }).join('');
         }
       }
@@ -6418,11 +6426,16 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
         if(!alerts.length){ albox.innerHTML='<div style="color:var(--muted);padding:14px;text-align:center;">Aucune tentative de contact direct détectée. 👍</div>'; }
         else {
           albox.innerHTML=alerts.map(function(a){
-            return '<div style="border:1px solid #f3c0bb;background:'+(a.read?'#fff':'#FFF5F5')+';border-radius:10px;padding:10px 12px;margin-bottom:8px;">'
-              + '<div style="font-size:.8rem;font-weight:700;color:#c0392b;">🚨 '+esc(a.fromName||'Utilisateur')+' '+(a.motifs?'· '+esc((a.motifs||[]).join(', ')):'')+'</div>'
+            var cv=(window._mpConvos&&a.convId)?window._mpConvos[a.convId]:null;
+            var pair='';
+            if(cv){ pair='<div style="font-size:.74rem;color:var(--muted);margin-bottom:2px;">Conversation <b>'+esc(mpFullName(cv.clientUid,cv.clientNom||'Client'))+'</b> (client) ↔ <b>'+esc(mpFullName(cv.gardienId,cv.gardienNom||'Gardien'))+'</b> (gardien)</div>'; }
+            var convTitle = cv?(esc(mpFullName(cv.clientUid,cv.clientNom||'Client'))+' ↔ '+esc(mpFullName(cv.gardienId,cv.gardienNom||'Gardien'))):'Conversation signalée';
+            return '<div style="border:1px solid #f3c0bb;border-left:4px solid #c0392b;background:'+(a.read?'#fff':'#FFF5F5')+';border-radius:10px;padding:10px 12px;margin-bottom:8px;">'
+              + pair
+              + '<div style="font-size:.8rem;font-weight:700;color:#c0392b;">🚨 '+esc(a.fromName||'Utilisateur')+' a tenté un contact direct'+(a.motifs?' · '+esc((a.motifs||[]).join(', ')):'')+'</div>'
               + '<div style="font-size:.82rem;color:var(--muted);margin:4px 0;">« '+esc(a.text||'')+' »</div>'
               + '<div style="display:flex;gap:6px;">'
-              + (a.convId?'<button class="refresh-btn" style="padding:4px 10px;font-size:.72rem;" onclick="mpViewConvo(\''+a.convId+'\',\'Conversation signalée\')">💬 Voir la conversation</button>':'')
+              + (a.convId?'<button class="refresh-btn" style="padding:4px 10px;font-size:.72rem;" onclick="mpViewConvo(\''+a.convId+'\',\''+convTitle+'\')">💬 Voir la conversation</button>':'')
               + '<button class="refresh-btn" style="padding:4px 10px;font-size:.72rem;" onclick="mpDismissAlert(\''+a._id+'\')">✓ Marquer traité</button></div></div>';
           }).join('');
         }
@@ -6633,6 +6646,14 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
   };
 
   // Lire une conversation (lecture seule)
+  // Nom complet (prénom + nom) depuis la fiche utilisateur ; sinon repli.
+  window.mpFullName = function(uid, fallback){
+    var u = (window._mpUsers||{})[uid];
+    if(u){ var n=((u.prenom||'')+' '+(u.nom||'')).trim(); if(n) return n; }
+    return fallback||'—';
+  };
+  var mpFullName = window.mpFullName;
+
   window.mpViewConvo = function(convId, title){
     document.getElementById('mp-convo-title').textContent = title || 'Conversation';
     var box = document.getElementById('mp-convo-msgs');
@@ -6640,16 +6661,22 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
     document.getElementById('mp-convo-modal').style.display = 'flex';
     window._mpDb.ref('milouPets/messages/'+convId).once('value').then(function(s){
       var conv = (window._mpConvos && window._mpConvos[convId]) || {};
+      var garFull = mpFullName(conv.gardienId, conv.gardienNom||'Gardien');
+      var cliFull = mpFullName(conv.clientUid, conv.clientNom||conv.clientPrenom||'Client');
       var msgs = []; s.forEach(function(c){ msgs.push(c.val()||{}); });
-      if(!msgs.length){ box.innerHTML='<div style="color:var(--muted);text-align:center;padding:20px;">Aucun message.</div>'; return; }
-      box.innerHTML = msgs.map(function(m){
+      // En-tête rappel : qui est qui
+      var head='<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:12px;">'
+        +'<span><span style="color:#2456c8;">👤 Client :</span> <b>'+esc(cliFull)+'</b></span>'
+        +'<span><span style="color:#1a7a44;">🏠 Gardien :</span> <b>'+esc(garFull)+'</b></span></div>';
+      if(!msgs.length){ box.innerHTML=head+'<div style="color:var(--muted);text-align:center;padding:20px;">Aucun message.</div>'; return; }
+      box.innerHTML = head + msgs.map(function(m){
         var mine = m.fromUid===conv.gardienId;
-        var who = mine?'🛡️ Gardien':'👤 Client';
+        var who = mine?('🏠 '+esc(garFull)+' (gardien)'):('👤 '+esc(cliFull)+' (client)');
         var align = mine?'flex-end':'flex-start';
-        var bg = mine?'#EEEBFB':'var(--bg)';
+        var bg = mine?'#E7F1E4':'#EEF3FE';
         var content = m.imageUrl?'<img src="'+m.imageUrl+'" style="max-width:170px;border-radius:8px;display:block;">':esc(m.text||'');
         var t = m.at?new Date(m.at).toLocaleString('fr-FR'):'';
-        return '<div style="display:flex;justify-content:'+align+';margin-bottom:8px;"><div style="max-width:78%;background:'+bg+';border:1px solid var(--border);border-radius:12px;padding:8px 12px;"><div style="font-size:.64rem;color:var(--muted);margin-bottom:3px;">'+who+' · '+esc(t)+'</div><div style="font-size:.85rem;color:var(--text);word-break:break-word;">'+content+'</div></div></div>';
+        return '<div style="display:flex;justify-content:'+align+';margin-bottom:8px;"><div style="max-width:78%;background:'+bg+';border:1px solid var(--border);border-radius:12px;padding:8px 12px;"><div style="font-size:.66rem;color:var(--muted);margin-bottom:3px;font-weight:700;">'+who+' · '+esc(t)+'</div><div style="font-size:.85rem;color:var(--text);word-break:break-word;">'+content+'</div></div></div>';
       }).join('');
       box.scrollTop = box.scrollHeight;
     }).catch(function(e){ box.innerHTML='<div style="color:var(--rouge);padding:14px;">Erreur : '+esc(e.message)+'</div>'; });
