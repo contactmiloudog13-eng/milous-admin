@@ -1218,7 +1218,10 @@ function ejsSendRefuse(r, messageRefus) {
       </div>
 
       <div class="panel" id="mp-sec-alerts" style="margin-bottom:18px;">
-        <div class="panel-title">🚨 Tentatives de contact direct</div>
+        <div class="panel-title" style="display:flex;align-items:center;justify-content:space-between;">🚨 Tentatives de contact direct
+          <button id="mp-sound-btn" onclick="mpToggleSound()" title="Activer / couper les sons de notification" style="border:1px solid var(--line,#ddd);background:#fff;border-radius:8px;padding:3px 9px;cursor:pointer;font-size:1rem;">🔔</button>
+        </div>
+        <div style="font-size:.74rem;color:var(--muted);margin:-4px 0 8px;">🔴 Temps réel : les nouvelles alertes et réservations arrivent sans actualiser (son à l'appui).</div>
         <div id="mp-alerts"><div class="loading">Chargement…</div></div>
       </div>
 
@@ -6997,6 +7000,7 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       window._mpDb.ref('milouPets/searchLog').once('value').catch(function(){return null;})
     ]).then(function(res){
       var gardSnap=res[0], userSnap=res[1], petSnap=res[2], resaSnap=res[3], avisSnap=res[4], reportSnap=res[5], convoSnap=res[6], alertSnap=res[7], bugSnap=res[8], searchSnap=res[9];
+      if(!window._mpRT) mpInitRealtime();   // temps réel + sons (une seule fois)
 
       // Maps
       var USERS={}; userSnap.forEach(function(c){ USERS[c.key]=c.val()||{}; });
@@ -7281,6 +7285,7 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
               + '<div style="font-size:.82rem;color:var(--muted);margin:4px 0;">« '+esc(a.text||'')+' »</div>'
               + '<div style="display:flex;gap:6px;">'
               + (a.convId?'<button class="refresh-btn" style="padding:4px 10px;font-size:.72rem;" onclick="mpViewConvo(\''+a.convId+'\',\''+convTitle+'\')">💬 Voir la conversation</button>':'')
+              + (a.fromUid?'<button class="refresh-btn" style="padding:4px 10px;font-size:.72rem;background:#c0392b;color:#fff;border-color:#c0392b;" onclick="mpWarnUser(\''+a.fromUid+'\')">⚠️ Avertir l\'auteur</button>':'')
               + '<button class="refresh-btn" style="padding:4px 10px;font-size:.72rem;" onclick="mpDismissAlert(\''+a._id+'\')">✓ Marquer traité</button></div></div>';
           }).join('');
         }
@@ -7558,6 +7563,72 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
   };
 
   // Marquer une alerte comme traitée
+  // ── Avertissement direct à l'auteur d'une tentative de contact hors plateforme ──
+  window.mpWarnUser = function(uid){
+    if(!uid){ alert('Auteur inconnu pour cette alerte.'); return; }
+    var u = (window._mpUsers && window._mpUsers[uid]) || {};
+    var nom = u.prenom || 'cet utilisateur';
+    var def = 'Nous avons détecté une tentative de partage de coordonnées ou de contact hors de Milou Compagnie. '
+      + 'C\'est interdit par nos conditions d\'utilisation et cela vous prive de toute protection. '
+      + 'En cas de récidive, votre compte sera suspendu.';
+    var msg = prompt('Message d\'avertissement envoyé à '+nom+' :', def);
+    if(msg===null || !msg.trim()) return;
+    window._mpDb.ref('milouPets/notifications/'+uid).push({
+      type:'warning', title:'⚠️ Avertissement de Milou Compagnie', body:msg.trim(),
+      link:'#', at:Date.now(), read:false
+    }).then(function(){ if(window.showToast) showToast('⚠️ Avertissement envoyé'); })
+     .catch(function(e){ alert('Erreur : '+e.message); });
+  };
+
+  // ── SONS (générés en WebAudio, aucun fichier requis) ──
+  var _mpAudio=null;
+  function mpAudioCtx(){ try{ if(!_mpAudio) _mpAudio=new (window.AudioContext||window.webkitAudioContext)(); return _mpAudio; }catch(e){ return null; } }
+  function mpTone(ctx,freq,start,dur,type,vol){
+    var o=ctx.createOscillator(), g=ctx.createGain();
+    o.type=type||'sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(0,start); g.gain.linearRampToValueAtTime(vol||0.2,start+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,start+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(start); o.stop(start+dur);
+  }
+  window.mpPlaySound = function(kind){
+    try{ if(localStorage.getItem('mpSoundOff')==='1') return; }catch(e){}
+    var ctx=mpAudioCtx(); if(!ctx) return;
+    if(ctx.state==='suspended'){ try{ ctx.resume(); }catch(e){} }
+    var t=ctx.currentTime;
+    if(kind==='win'){ [523,659,784,1047].forEach(function(f,i){ mpTone(ctx,f,t+i*0.11,0.20,'triangle',0.28); }); }
+    else { mpTone(ctx,880,t,0.14,'square',0.22); mpTone(ctx,660,t+0.2,0.22,'square',0.22); }
+  };
+  window.mpToggleSound = function(){
+    var off; try{ off=localStorage.getItem('mpSoundOff')==='1'; localStorage.setItem('mpSoundOff',off?'0':'1'); }catch(e){}
+    var b=document.getElementById('mp-sound-btn'); if(b) b.textContent=off?'🔔':'🔕';
+    if(off) window.mpPlaySound('win');   // petit test à la réactivation
+  };
+
+  // ── TEMPS RÉEL : plus besoin d'actualiser + sons sur nouveauté ──
+  var _mpRTdeb=null, _mpLastAlerts=null, _mpLastResas=null;
+  function mpRefreshSoon(){ clearTimeout(_mpRTdeb); _mpRTdeb=setTimeout(function(){ mpLoadData(); }, 500); }
+  window.mpInitRealtime = function(){
+    if(window._mpRT) return; window._mpRT=true;
+    try{ var b=document.getElementById('mp-sound-btn'); if(b) b.textContent=(localStorage.getItem('mpSoundOff')==='1')?'🔕':'🔔'; }catch(e){}
+    var db=window._mpDb;
+    // Nouvelle tentative de contact direct → bip d'alerte
+    db.ref('milouPets/adminAlerts').on('value', function(s){
+      var n=0; s.forEach(function(){ n++; });
+      if(_mpLastAlerts!==null && n>_mpLastAlerts){ window.mpPlaySound('alert'); }
+      _mpLastAlerts=n; mpRefreshSoon();
+    });
+    // Nouvelle réservation (arborescence gardien→résa) → son de victoire 🎉
+    db.ref('milouPets/reservations').on('value', function(s){
+      var n=0; s.forEach(function(g){ g.forEach(function(){ n++; }); });
+      if(_mpLastResas!==null && n>_mpLastResas){ window.mpPlaySound('win'); }
+      _mpLastResas=n; mpRefreshSoon();
+    });
+    // Autres nœuds → simple rafraîchissement temps réel (pas de son)
+    ['bugReports','reports','supportTickets','conversations','gardiens'].forEach(function(node){
+      db.ref('milouPets/'+node).on('value', function(){ mpRefreshSoon(); });
+    });
+  };
+
   window.mpDismissAlert = function(id){
     window._mpDb.ref('milouPets/adminAlerts/'+id+'/read').set(true).then(function(){ mpLoadData(); }).catch(function(e){ alert('Erreur : '+e.message); });
   };
