@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -6465,7 +6465,15 @@ function resetSiteImage(slotId) {
 
 function _showWaModal() {
   var c = _waMsgClient;
-  document.getElementById('wa-modal-client').innerHTML = '👤 ' + (c.prenom||'Client') + ' &nbsp;·&nbsp; 🐕 ' + (c.chien||'—') + ' &nbsp;·&nbsp; ' + (c.arr||'—') + ' → ' + (c.dep||'—');
+  // ⚠️ XSS stocké : prénom / nom du chien sont saisis par le CLIENT lors de sa
+  // réservation. Sans échappement, un « prénom » piégé (ex. <img onerror=…>)
+  // s'exécutait ICI, dans la session ADMIN — donc avec tous les droits.
+  var _e = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (ch) {
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch];
+    });
+  };
+  document.getElementById('wa-modal-client').innerHTML = '👤 ' + _e(c.prenom||'Client') + ' &nbsp;·&nbsp; 🐕 ' + _e(c.chien||'—') + ' &nbsp;·&nbsp; ' + _e(c.arr||'—') + ' → ' + _e(c.dep||'—');
   var list = document.getElementById('wa-tpl-list');
   list.innerHTML = WA_TEMPLATES.map(function(t) {
     return '<button onclick="selectWaTpl(\''+t.id+'\')" style="text-align:left;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:.82rem;font-weight:600;cursor:pointer;color:var(--text);transition:border-color .15s;" onmouseover="this.style.borderColor=\''+t.color+'\'" onmouseout="this.style.borderColor=\'\'"><span style="color:'+t.color+'">'+t.label+'</span></button>';
