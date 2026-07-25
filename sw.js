@@ -1,4 +1,4 @@
-const CACHE = 'milou-admin-v25';
+const CACHE = 'milou-admin-v26';
 const ASSETS = [
   './',
   './index.html',

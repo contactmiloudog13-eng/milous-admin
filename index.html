@@ -151,6 +151,18 @@ body.dark .mobile-tabbar button.active{color:#B9AEE8;}
 .filter-btn:hover,.filter-btn.active{background:var(--lav-l);border-color:var(--lavande);color:var(--lav-d);}
 .detail-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:8px;display:none;}
 .detail-card.open{display:block;}
+/* Réservations en CARTES : grille sur grand écran, 1 colonne sur mobile → tout visible sans défilement horizontal */
+.resa-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px;}
+.resa-card{border:1px solid var(--border);border-radius:14px;padding:14px;background:var(--card,#fff);box-shadow:0 2px 8px rgba(0,0,0,.04);}
+.resa-card .rc-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;margin-bottom:10px;}
+.resa-card .rc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;font-size:.86rem;}
+.resa-card .rc-grid>div:nth-child(3){grid-column:1/-1;}
+.resa-card .rc-lbl{display:block;font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin-bottom:2px;}
+.resa-card .rc-sub{font-size:.72rem;color:var(--muted);}
+.resa-card .rc-msg{margin-top:10px;font-size:.8rem;color:var(--muted);background:var(--bg);border-radius:9px;padding:8px 10px;}
+.resa-card .rc-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;}
+.resa-card .rc-foot{font-size:.66rem;color:var(--muted);margin-top:8px;text-align:right;}
+@media(max-width:560px){.resa-cards{grid-template-columns:1fr;}.resa-card .rc-grid{grid-template-columns:1fr;}}
 .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:.82rem;}
 .detail-grid>div{display:flex;flex-direction:column;gap:2px;}
 .detail-grid label{font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;}
@@ -1521,14 +1533,7 @@ function renderStats() {
   // encore été traitée, dans LES DEUX systèmes :
   //  • résa du site web → statut Firebase (_statut) : traitée si confirmé/refusé/annulée
   //  • ancienne résa (feuille) → statut dans mdp_data/statuses
-  const newCount = allData.filter(r => {
-    if (r._statut) return (r._statut === 'en-attente' || r._statut === 'invité');
-    return (getStatuses()[getResaKey(r)]||'new') === 'new';
-  }).length;
-  const badge = document.getElementById('resa-badge');
-  if (badge) { badge.textContent = newCount; badge.style.display = newCount > 0 ? 'inline' : 'none'; }
-  if (newCount > 0) document.title = '('+newCount+') Admin – Milou Dogs Provence';
-  else document.title = 'Admin – Milou Dogs Provence';
+  updateBadge();   // compteur « non vu » centralisé (voir updateBadge/markResaSeen)
 }
 
 function parseDate(str) {
@@ -2109,6 +2114,8 @@ function show(id, btn) {
   document.querySelector('.main').classList.toggle('planning-wide', id === 'planning');
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  // Ouvrir l'onglet Réservations = « j'ai vu » → le compteur s'efface (revient au prochain nouveau).
+  if (id === 'reservations' && typeof markResaSeen === 'function') markResaSeen();
   if (id === 'planning') {
     planGoToday();
     var t = new Date();
@@ -4975,19 +4982,24 @@ function playAlert() {
 }
 
 function updateBadge(count) {
-  // Badge sur l'onglet navigateur
-  if (count > 0) {
-    document.title = '(' + count + ') Admin — Milou Dogs Provence';
-  } else {
-    document.title = 'Admin — Milou Dogs Provence';
-  }
-  // Badge dans le menu
+  // Le badge ne compte QUE les réservations non encore vues : dès que l'admin
+  // ouvre l'onglet Réservations, le chiffre disparaît (markResaSeen) et ne
+  // réapparaît que pour une demande arrivée APRÈS.
+  var seen = 0; try { seen = +localStorage.getItem('mdp_resa_seen_ts') || 0; } catch (e) {}
+  var data = window.allData || [];
+  var unseen = data.filter(function (r) {
+    var pending = r._statut ? (r._statut === 'en-attente' || r._statut === 'invité')
+                            : ((getStatuses()[getResaKey(r)] || 'new') === 'new');
+    return pending && (r._createdAtMs || 0) > seen;
+  }).length;
+  document.title = unseen > 0 ? '(' + unseen + ') Admin — Milou Dogs Provence' : 'Admin — Milou Dogs Provence';
   var badge = document.getElementById('resa-badge');
   if (badge) {
-    if (count > 0) { badge.textContent = count; badge.style.display = 'inline'; }
+    if (unseen > 0) { badge.textContent = unseen; badge.style.display = 'inline'; }
     else { badge.style.display = 'none'; }
   }
 }
+window.markResaSeen = function () { try { localStorage.setItem('mdp_resa_seen_ts', String(Date.now())); } catch (e) {} updateBadge(); };
 
 
 function waPhone(r) {
@@ -5152,39 +5164,112 @@ function buildResaRow(r, colspan) {
   return row;
 }
 
-function buildResaTable(resas) {
-  if (!resas.length) return '<p style="text-align:center;color:var(--muted);padding:16px 0;">Aucune réservation.</p>';
-  var html = '<div style="overflow-x:auto;"><table class="tbl"><thead><tr>'
-    + '<th>Client</th><th>Chien</th><th>Service</th><th>Dates</th>'
-    + '<th>Message</th><th>Statut</th><th>Action</th><th>Reçue le</th>'
-    + '</tr></thead><tbody>';
-  resas.forEach(function(r) { html += buildResaRow(r, 8); });
-  html += '</tbody></table></div>';
-  return html;
+// Affichage en CARTES (plus de tableau à faire défiler sur mobile) : sur grand
+// écran plusieurs cartes par ligne, sur mobile une seule colonne — tout visible.
+function buildResaCard(r) {
+  var client = r.client || {}, chien = r.chien || {};
+  var prenom = client.prenom || '', nom = client.nom || '', tel = client.telephone || '', email = client.email || r.email || '';
+  var statut = r.statut || 'en-attente';
+  var isNew = statut === 'en-attente' || statut === 'invité';
+  var isDone = statut === 'confirmé' || statut === 'refusé';
+  var dates = (r.dateArrivee ? fmtDate(r.dateArrivee) : '—') + (r.dateDepart ? ' → ' + fmtDate(r.dateDepart) : '');
+  var heures = (r.heureArrivee || '') + (r.heureDepart ? ' → ' + r.heureDepart : '');
+  var chienDetail = [chien.race, chien.age, chien.poids ? chien.poids + ' kg' : ''].filter(Boolean).join(' · ');
+  var created = r.createdAt ? new Date(r.createdAt).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+  var safeId = r._id.replace(/[^a-zA-Z0-9_-]/g, '_');
+  var safeName = (prenom + ' ' + nom + ' · ' + (chien.nom || '')).replace(/'/g, '');
+  var safeRId = r._id.replace(/'/g, '');
+  var prix = _fbResaTotal(r.prix);
+
+  var actions = '';
+  if (isNew) {
+    actions += '<button class="btn-accept" onclick="acceptFbResa(\'' + safeRId + '\')">✅ Accepter</button>';
+    actions += '<button class="btn-refuse" onclick="openRefuseModal(\'' + safeRId + '\',\'' + safeName + '\')">❌ Refuser</button>';
+  }
+  if (isDone) actions += '<button class="btn-undo" title="Remettre en attente" onclick="setFbStatus(\'' + safeRId + '\',\'en-attente\')">↩️</button>';
+  if (statut === 'confirmé') {
+    actions += '<button title="Facturer" onclick="factureResaSite(\'' + safeRId + '\')" style="background:var(--lav-d);color:#fff;border:none;padding:6px 12px;border-radius:20px;font-size:.72rem;font-weight:700;cursor:pointer;">🧾 Facturer</button>';
+    actions += '<button class="btn-undo" title="Journal de séjour" onclick="openJournal(\'' + safeRId + '\',\'' + safeName + '\')">📔</button>';
+    actions += '<button class="btn-undo" title="Demander un avis Google" onclick="askReview(\'' + tel + '\',\'' + (prenom||'').replace(/'/g,'') + '\')">⭐</button>';
+  }
+  actions += '<button class="btn-delete" title="Supprimer" onclick="deleteFbResa(\'' + safeRId + '\',\'' + safeName + '\')">🗑️</button>';
+
+  return '<div class="resa-card">'
+    + '<div class="rc-head"><div class="rc-who"><b>' + prenom + ' ' + nom + '</b>'
+      + (r.userId ? '' : ' <span class="badge-invite">INVITÉ</span>')
+      + (tel ? '<br><a href="tel:' + tel + '" style="font-size:.74rem;color:var(--lav-d);">' + formatTel(tel) + '</a>' : '') + '</div>'
+      + '<div>' + fbStatutBadge(statut) + '</div></div>'
+    + '<div class="rc-grid">'
+      + '<div><span class="rc-lbl">🐕 Chien</span>' + (chien.nom || '—') + (chienDetail ? '<br><span class="rc-sub">' + chienDetail + '</span>' : '') + '</div>'
+      + '<div><span class="rc-lbl">Service</span>' + serviceBadge(r.service || '') + (r.nbChiens ? ' <span class="rc-sub">' + r.nbChiens + '</span>' : '') + (prix ? '<br><b style="color:var(--vert,#2e9e5b);">💶 ' + prix + '</b>' : '') + '</div>'
+      + '<div><span class="rc-lbl">📅 Dates</span>' + dates + (heures ? '<br><span class="rc-sub">' + heures + '</span>' : '') + '</div>'
+    + '</div>'
+    + (r.message ? '<div class="rc-msg">💬 ' + (r.message.length > 90 ? r.message.substring(0,90) + '…' : r.message) + '</div>' : '')
+    + '<div class="rc-actions">' + actions + '<button class="btn-undo" onclick="toggleFbDetail(\'' + safeId + '\')">🔎 Détails</button></div>'
+    + '<div class="detail-card" id="fb-detail-' + safeId + '">'
+      + '<div class="detail-grid">'
+      + '<div><label>Email</label><a href="mailto:' + email + '" style="color:var(--lav-d);">' + (email || '—') + '</a></div>'
+      + '<div><label>Âge chien</label>' + (chien.age || '—') + '</div>'
+      + '<div><label>Poids chien</label>' + (chien.poids ? chien.poids + ' kg' : '—') + '</div>'
+      + '<div><label>Parrainage</label>' + (r.parrainage || '—') + '</div>'
+      + (r.prix ? '<div style="grid-column:1/-1;"><label>💶 Devis / Prix</label><span style="font-size:.82rem;line-height:1.6;">' + String(r.prix).replace(/\|/g,'<br>') + '</span></div>' : '')
+      + (r.carnetMalin && r.carnetMalin.nuitsDeduites ? '<div style="grid-column:1/-1;"><label>🎟️ Carnet Malin</label><span style="font-size:.82rem;color:var(--lav-d);font-weight:700;">' + r.carnetMalin.nuitsDeduites + ' jour(s) déduit(s)' + (r.carnetMalin.applied ? ' ✅' : ' (à l\'acceptation)') + '</span></div>' : '')
+      + '<div style="grid-column:1/-1;"><label>Message complet</label><span style="font-size:.82rem;">' + (r.message || '—') + '</span></div>'
+      + (r.messageRefus ? '<div style="grid-column:1/-1;"><label>Message de refus envoyé</label><span style="color:var(--rouge);font-size:.82rem;">' + r.messageRefus + '</span></div>' : '')
+      + '</div>'
+      + (tel ? '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">'
+        + '<a href="tel:' + tel + '" style="background:var(--lav-d);color:#fff;padding:6px 14px;border-radius:20px;font-size:.75rem;font-weight:600;text-decoration:none;">📞 ' + formatTel(tel) + '</a>'
+        + '<a href="https://wa.me/33' + tel.replace(/[^0-9]/g,'').replace(/^33/,'').replace(/^0/,'') + '" target="_blank" style="background:#25D366;color:#fff;padding:6px 14px;border-radius:20px;font-size:.75rem;font-weight:600;text-decoration:none;">💬 WhatsApp</a>'
+        + '</div>' : '')
+    + '</div>'
+    + '<div class="rc-foot">Reçue le ' + created + '</div>'
+    + '</div>';
 }
+
+function buildResaTable(resas) {
+  if (!resas.length) return '<p style="text-align:center;color:var(--muted);padding:14px 0;">Aucune réservation.</p>';
+  return '<div class="resa-cards">' + resas.map(buildResaCard).join('') + '</div>';
+}
+
+window.toggleResaArchive = function(btn) {
+  var box = btn.nextElementSibling;
+  var open = box.style.display !== 'none';
+  box.style.display = open ? 'none' : 'block';
+  btn.innerHTML = (open ? '▶' : '▼') + ' ' + btn.getAttribute('data-label');
+};
 
 function renderFbResaSection() {
   var el = document.getElementById('fb-resa-table');
   if (!el) return;
   var resas = window._fbResas || [];
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  function isPast(r) { var d = r.dateDepart || r.dateArrivee; if (!d) return false; var dt = new Date(d); return !isNaN(dt.getTime()) && dt < today; }
 
-  var nouvelles = resas.filter(function(r) { var s = r.statut || 'en-attente'; return s === 'en-attente' || s === 'invité'; });
-  var historique = resas.filter(function(r) { var s = r.statut || 'en-attente'; return s !== 'en-attente' && s !== 'invité'; });
+  var aTraiter = [], aVenir = [], passees = [];
+  resas.forEach(function(r) {
+    var s = r.statut || 'en-attente';
+    if (s === 'en-attente' || s === 'invité') aTraiter.push(r);
+    else if (s === 'confirmé' && !isPast(r)) aVenir.push(r);
+    else passees.push(r);
+  });
+  aTraiter.sort(function(a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+  aVenir.sort(function(a, b) { return new Date(a.dateArrivee || 0) - new Date(b.dateArrivee || 0); });
+  passees.sort(function(a, b) { return new Date(b.dateArrivee || 0) - new Date(a.dateArrivee || 0); });
 
   var html = '';
-
-  html += '<div style="margin-bottom:6px;">'
-    + '<div class="panel-title" style="font-size:.9rem;">🔔 Nouvelles réservations'
-    + (nouvelles.length ? ' <span style="background:var(--rouge);color:#fff;border-radius:20px;padding:1px 8px;font-size:.7rem;font-weight:700;">' + nouvelles.length + '</span>' : '')
-    + '</div>'
-    + buildResaTable(nouvelles)
+  // 1) À TRAITER — demandes en attente, toujours en haut
+  html += '<div class="panel-title" style="font-size:.95rem;">🔔 À traiter'
+    + (aTraiter.length ? ' <span style="background:var(--rouge);color:#fff;border-radius:20px;padding:1px 9px;font-size:.72rem;font-weight:700;">' + aTraiter.length + '</span>' : '')
+    + '</div>' + buildResaTable(aTraiter);
+  // 2) À VENIR — gardes confirmées encore à venir
+  html += '<div class="panel-title" style="font-size:.95rem;margin-top:20px;">📅 Gardes à venir'
+    + (aVenir.length ? ' <span style="background:var(--lav-d,#7B6FA0);color:#fff;border-radius:20px;padding:1px 9px;font-size:.72rem;font-weight:700;">' + aVenir.length + '</span>' : '')
+    + '</div>' + buildResaTable(aVenir);
+  // 3) PASSÉES & ARCHIVÉES — repliées par défaut
+  html += '<div style="margin-top:20px;">'
+    + '<button class="refresh-btn" data-label="📁 Passées & archivées (' + passees.length + ')" onclick="toggleResaArchive(this)" style="width:100%;text-align:left;">▶ 📁 Passées &amp; archivées (' + passees.length + ')</button>'
+    + '<div style="display:none;margin-top:12px;">' + buildResaTable(passees) + '</div>'
     + '</div>';
-
-  html += '<div style="margin-top:18px;">'
-    + '<div class="panel-title" style="font-size:.9rem;">📋 Historique (confirmées / refusées / annulées)</div>'
-    + buildResaTable(historique)
-    + '</div>';
-
   el.innerHTML = html;
 }
 
