@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -63,6 +63,15 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
   [style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important;}
   [style*="grid-template-columns:420px 1fr"]{grid-template-columns:1fr!important;}
 }
+/* Le bloc mobile ci-dessous s'arrête à 900px : un iPad en paysage fait 1024px
+   et iOS y zoomait encore au focus. On couvre les tablettes ET, via
+   « pointer:coarse », tout écran tactile quelle que soit sa taille. */
+@media (max-width:1024px), (pointer:coarse){
+  /* Uniquement les champs de saisie : un bouton ne déclenche pas le zoom iOS,
+     inutile de toucher son rendu sur un écran d'ordinateur étroit. */
+  input,select,textarea,.search-bar{font-size:16px!important;}
+}
+
 /* ═══ MODE APPLICATION MOBILE : app bar + tiroir + barre d'onglets ═══ */
 @media(max-width:900px){
   /* 1) iOS ne zoome plus au focus : tous les champs ≥ 16px */
