@@ -3906,6 +3906,15 @@ function calcDevis() {
   let lines = [], total = 0;
   const chiensSuffix = nb > 1 ? ' × ' + nb + ' chiens' : '';
   const chiensX = nb > 1 ? ' × ' + nb : '';
+  // Unités facturées au PLEIN TARIF (nuits de pension, journées de garderie…).
+  // Le Forfait Évasion ne peut requalifier que celles-ci — jamais une arrivée
+  // tardive ni un jour de départ, qui sont déjà à tarif réduit.
+  var nbUnitesPleinTarif = 0;
+
+  // Dates lisibles sur chaque ligne du devis (ex. « · du 25/07 au 31/07 »)
+  function _jour(iso, plus){ var p=String(iso).split('-'); var d=new Date(+p[0], +p[1]-1, +p[2]); if(plus) d.setDate(d.getDate()+plus); return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2); }
+  function _le(iso, plus){ return d1 ? ' · ' + _jour(iso, plus||0) : ''; }
+  function _du(iso, a, b){ return d1 ? ' · du ' + _jour(iso, a) + ' au ' + _jour(iso, b) : ''; }
 
   const T = getTarifs();
   if (service === 'toilettage') {
@@ -3916,37 +3925,38 @@ function calcDevis() {
     if (service === 'pension') {
       if (!d1) {
         lines.push('🏠 Pension' + chiensSuffix + ' | ' + T.pension + '€ / nuit');
-        brut = T.pension;
+        brut = T.pension; nbUnitesPleinTarif = 1;
       } else {
         const prix1 = arriveTardive ? T.demi : T.pension;
         const sousNuits = prix1 + Math.max(0, nuits - 1) * T.pension;
         if (nuits > 0) {
           if (arriveTardive && nuits === 1) {
-            lines.push('🏠 Arrivée tardive' + chiensSuffix + ' | ' + T.demi + '€' + chiensX + ' = ' + (T.demi * nb) + '€');
+            lines.push('🏠 Arrivée tardive' + _le(d1) + chiensSuffix + ' | ' + T.demi + '€' + chiensX + ' = ' + (T.demi * nb) + '€');
           } else if (arriveTardive) {
-            lines.push('🏠 Arrivée tardive (1ère nuit)' + chiensSuffix + ' | ' + T.demi + '€' + chiensX + ' = ' + (T.demi * nb) + '€');
-            lines.push('🏠 ' + (nuits - 1) + ' nuit(s)' + chiensSuffix + ' | ' + T.pension + '€ × ' + (nuits - 1) + chiensX + ' = ' + (T.pension * (nuits - 1) * nb) + '€');
+            lines.push('🏠 Arrivée tardive (1ère nuit)' + _le(d1) + chiensSuffix + ' | ' + T.demi + '€' + chiensX + ' = ' + (T.demi * nb) + '€');
+            lines.push('🏠 ' + (nuits - 1) + ' nuit(s)' + _du(d1, 1, nuits - 1) + chiensSuffix + ' | ' + T.pension + '€ × ' + (nuits - 1) + chiensX + ' = ' + (T.pension * (nuits - 1) * nb) + '€');
           } else {
-            lines.push('🏠 ' + nuits + ' nuit(s)' + chiensSuffix + ' | ' + T.pension + '€ × ' + nuits + chiensX + ' = ' + (T.pension * nuits * nb) + '€');
+            lines.push('🏠 ' + nuits + ' nuit(s)' + _du(d1, 0, nuits - 1) + chiensSuffix + ' | ' + T.pension + '€ × ' + nuits + chiensX + ' = ' + (T.pension * nuits * nb) + '€');
           }
         }
-        if (extraJournee) lines.push('➕ Jour de départ' + chiensSuffix + ' | ' + T.garderie + '€' + chiensX + ' = ' + (T.garderie * nb) + '€');
-        if (extraDemi)    lines.push('➕ ½ journée départ' + chiensSuffix + ' | ' + T.demi + '€' + chiensX + ' = ' + (T.demi * nb) + '€');
+        if (extraJournee) lines.push('➕ Jour de départ' + _le(d2) + chiensSuffix + ' | ' + T.garderie + '€' + chiensX + ' = ' + (T.garderie * nb) + '€');
+        if (extraDemi)    lines.push('➕ ½ journée départ' + _le(d2) + chiensSuffix + ' | ' + T.demi + '€' + chiensX + ' = ' + (T.demi * nb) + '€');
         brut = sousNuits + extraJournee * T.garderie + extraDemi * T.demi;
+        nbUnitesPleinTarif = Math.max(0, nuits - (arriveTardive ? 1 : 0));
       }
     } else if (service === 'garderie') {
       // Garderie de JOUR : on compte le nombre de journées sur la période choisie (inclus).
       var joursG = (d1 && d2) ? Math.max(1, nuits + 1) : 1;
-      lines.push('☀️ Garderie journée' + chiensSuffix + ' | ' + T.garderie + '€' + (joursG > 1 ? ' × ' + joursG + ' j' : '') + chiensX + ' = ' + (T.garderie * joursG * nb) + '€');
-      brut = T.garderie * joursG;
+      lines.push('☀️ Garderie journée' + (d1 && d2 ? _du(d1, 0, nuits) : '') + chiensSuffix + ' | ' + T.garderie + '€' + (joursG > 1 ? ' × ' + joursG + ' j' : '') + chiensX + ' = ' + (T.garderie * joursG * nb) + '€');
+      brut = T.garderie * joursG; nbUnitesPleinTarif = joursG;
     } else if (service === 'demi') {
       var joursD = (d1 && d2) ? Math.max(1, nuits + 1) : 1;
-      lines.push('🌤️ Demi-journée' + chiensSuffix + ' | ' + T.demi + '€' + (joursD > 1 ? ' × ' + joursD + ' j' : '') + chiensX + ' = ' + (T.demi * joursD * nb) + '€');
-      brut = T.demi * joursD;
+      lines.push('🌤️ Demi-journée' + (d1 && d2 ? _du(d1, 0, nuits) : '') + chiensSuffix + ' | ' + T.demi + '€' + (joursD > 1 ? ' × ' + joursD + ' j' : '') + chiensX + ' = ' + (T.demi * joursD * nb) + '€');
+      brut = T.demi * joursD; nbUnitesPleinTarif = joursD;
     } else if (service === 'promenade') {
       var joursP = (d1 && d2) ? Math.max(1, nuits + 1) : 1;
       lines.push('🦮 Promenade' + chiensSuffix + ' | ' + T.promenade + '€' + (joursP > 1 ? ' × ' + joursP : '') + chiensX + ' = ' + (T.promenade * joursP * nb) + '€');
-      brut = T.promenade * joursP;
+      brut = T.promenade * joursP; nbUnitesPleinTarif = joursP;
     } else if (service === 'evasion') {
       // Forfait Évasion vendu seul (randonnée du samedi)
       var joursE = parseInt(document.getElementById('f-evasion') && document.getElementById('f-evasion').value) || 1;
@@ -3968,16 +3978,20 @@ function calcDevis() {
     if (nbEva > 0 && service !== 'toilettage') {
       // Tarif de la journée que l'Évasion remplace (0 pour la pension : les
       // nuits ne sont pas des journées, elles restent dues).
-      var tarifRemplace = (service === 'garderie') ? T.garderie
+      var tarifRemplace = (service === 'pension') ? T.pension
+                        : (service === 'garderie') ? T.garderie
                         : (service === 'demi') ? T.demi
                         : (service === 'promenade') ? T.promenade : 0;
       // On ne peut pas remplacer plus de journées qu'il n'y en a de facturées
-      var maxRemplacables = tarifRemplace > 0 ? Math.floor(brut / tarifRemplace) : 0;
+      var maxRemplacables = tarifRemplace > 0 ? nbUnitesPleinTarif : 0;
       var nbRemplacees = Math.min(nbEva, maxRemplacables);
 
       lines.push('🏔️ Forfait Évasion' + chiensSuffix + ' | ' + T.evasion + '€' + (nbEva > 1 ? ' × ' + nbEva + ' j' : '') + chiensX + ' = ' + (T.evasion * nbEva * nb) + '€');
       if (nbRemplacees > 0) {
-        lines.push('↳ Journée' + (nbRemplacees > 1 ? 's' : '') + ' incluse' + (nbRemplacees > 1 ? 's' : '') + ' dans l\'Évasion' + chiensSuffix + ' | −' + tarifRemplace + '€ × ' + nbRemplacees + chiensX + ' = −' + (tarifRemplace * nbRemplacees * nb) + '€');
+        var motRemplace = (service === 'pension')
+          ? ('Nuit' + (nbRemplacees > 1 ? 's' : '') + ' requalifiée' + (nbRemplacees > 1 ? 's' : '') + ' en Évasion')
+          : ('Journée' + (nbRemplacees > 1 ? 's' : '') + ' incluse' + (nbRemplacees > 1 ? 's' : '') + ' dans l\'Évasion');
+        lines.push('↳ ' + motRemplace + chiensSuffix + ' | −' + tarifRemplace + '€ × ' + nbRemplacees + chiensX + ' = −' + (tarifRemplace * nbRemplacees * nb) + '€');
       }
       brut = brut - (tarifRemplace * nbRemplacees) + (T.evasion * nbEva);
     }
