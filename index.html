@@ -3834,6 +3834,21 @@ function updateMinDepart() {
 }
 
 // Génère le HTML complet d'un devis (utilisé par le devis live ET l'historique → rendu identique)
+function blocHorairesHTML(){
+  var P = "color:#4A3F72;", G = "color:#6B6760;";
+  return '<div style="background:#F3F0F8;border-radius:12px;padding:14px 18px;margin-top:18px;font-size:.78rem;line-height:1.75;' + P + '">'
+    + '<div style="font-weight:600;margin-bottom:6px;">\u{1F558} Horaires d\u2019accueil</div>'
+    + '<div style="' + G + '">Du lundi au dimanche : <b style="' + P + '">8h \u2013 12h</b> et <b style="' + P + '">13h30 \u2013 19h</b></div>'
+    + '<div style="margin-top:8px;' + G + '">\u23F0 <b style="' + P + '">Merci de bien respecter l\u2019heure de rendez-vous convenue.</b> Les d\u00E9p\u00F4ts et r\u00E9cup\u00E9rations se font uniquement sur ces cr\u00E9neaux, afin que chaque chien soit accueilli dans le calme.</div>'
+    + '<div style="font-weight:600;margin:12px 0 4px;">\u{1F4A1} Comment se calcule le s\u00E9jour</div>'
+    + '<ul style="margin:0;padding-left:18px;' + G + '">'
+    +   '<li><b style="' + P + '">Une nuit</b> = du d\u00E9p\u00F4t au retour le lendemain matin.</li>'
+    +   '<li><b style="' + P + '">Arriv\u00E9e apr\u00E8s 13h30</b> : la 1\u00E8re nuit est compt\u00E9e en demi-journ\u00E9e, donc moins ch\u00E8re.</li>'
+    +   '<li><b style="' + P + '">D\u00E9part avant 13h</b> : une demi-journ\u00E9e est ajout\u00E9e. <b style="' + P + '">D\u00E9part \u00E0 partir de 14h</b> : une journ\u00E9e compl\u00E8te est ajout\u00E9e.</li>'
+    +   '<li><b style="' + P + '">Forfait \u00C9vasion</b> : la journ\u00E9e de randonn\u00E9e remplace le tarif normal de la journ\u00E9e \u2014 elle ne s\u2019y ajoute pas.</li>'
+    + '</ul></div>';
+}
+
 function devisCardHTML(d) {
   var svcNames = {pension:'Pension complète', garderie:'Garderie journée', demi:'Demi-journée', promenade:'Promenade', evasion:'Forfait Évasion', toilettage:'Toilettage'};
   var dateStr = d.date || new Date().toLocaleDateString('fr-FR');
@@ -3867,6 +3882,7 @@ function devisCardHTML(d) {
   h += '<hr class="sep">';
   h += '<div class="detail-box">'+(detail?detailToRows(detail):'')+'</div>';
   h += '<div class="total-block"><div class="total-lbl">Total à régler</div><div class="total-val">'+d.total+'</div></div>';
+  h += blocHorairesHTML();
   h += '<div class="footer">Devis non contractuel — Paiement à la fin du séjour<br>Espèces · Virement · PayPal</div>';
   h += '<div class="btns">';
   if (telClean) h += '<a class="btn btn-wa" href="'+waUrl+'" target="_blank">💬 WhatsApp</a>';
@@ -3910,6 +3926,11 @@ function calcDevis() {
   // Le Forfait Évasion ne peut requalifier que celles-ci — jamais une arrivée
   // tardive ni un jour de départ, qui sont déjà à tarif réduit.
   var nbUnitesPleinTarif = 0;
+  // Forfait Évasion : lu en amont pour que la nuit concernée s'affiche comme
+  // une ligne normale (« 1 nuit Forfait Évasion — 35€ ») au lieu d'un ajout
+  // suivi d'une déduction négative, illisible pour le client.
+  var _evaEl = document.getElementById('f-evasion');
+  var nbEva = (_evaEl && service !== 'evasion') ? (parseInt(_evaEl.value) || 0) : 0;
 
   // Dates lisibles sur chaque ligne du devis (ex. « · du 25/07 au 31/07 »)
   function _jour(iso, plus){ var p=String(iso).split('-'); var d=new Date(+p[0], +p[1]-1, +p[2]); if(plus) d.setDate(d.getDate()+plus); return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2); }
@@ -3934,9 +3955,11 @@ function calcDevis() {
             lines.push('🏠 Arrivée tardive' + _le(d1) + chiensSuffix + ' | ' + T.demi + '€' + chiensX + ' = ' + (T.demi * nb) + '€');
           } else if (arriveTardive) {
             lines.push('🏠 Arrivée tardive (1ère nuit)' + _le(d1) + chiensSuffix + ' | ' + T.demi + '€' + chiensX + ' = ' + (T.demi * nb) + '€');
-            lines.push('🏠 ' + (nuits - 1) + ' nuit(s)' + _du(d1, 1, nuits - 1) + chiensSuffix + ' | ' + T.pension + '€ × ' + (nuits - 1) + chiensX + ' = ' + (T.pension * (nuits - 1) * nb) + '€');
+            var _nrT = Math.max(0, (nuits - 1) - Math.min(nbEva, nuits - 1));
+            if (_nrT > 0) lines.push('🏠 ' + _nrT + ' nuit(s)' + _du(d1, 1, nuits - 1) + chiensSuffix + ' | ' + T.pension + '€ × ' + _nrT + chiensX + ' = ' + (T.pension * _nrT * nb) + '€');
           } else {
-            lines.push('🏠 ' + nuits + ' nuit(s)' + _du(d1, 0, nuits - 1) + chiensSuffix + ' | ' + T.pension + '€ × ' + nuits + chiensX + ' = ' + (T.pension * nuits * nb) + '€');
+            var _nr = Math.max(0, nuits - Math.min(nbEva, nuits));
+            if (_nr > 0) lines.push('🏠 ' + _nr + ' nuit(s)' + _du(d1, 0, nuits - 1) + chiensSuffix + ' | ' + T.pension + '€ × ' + _nr + chiensX + ' = ' + (T.pension * _nr * nb) + '€');
           }
         }
         if (extraJournee) lines.push('➕ Jour de départ' + _le(d2) + chiensSuffix + ' | ' + T.garderie + '€' + chiensX + ' = ' + (T.garderie * nb) + '€');
@@ -3947,7 +3970,8 @@ function calcDevis() {
     } else if (service === 'garderie') {
       // Garderie de JOUR : on compte le nombre de journées sur la période choisie (inclus).
       var joursG = (d1 && d2) ? Math.max(1, nuits + 1) : 1;
-      lines.push('☀️ Garderie journée' + (d1 && d2 ? _du(d1, 0, nuits) : '') + chiensSuffix + ' | ' + T.garderie + '€' + (joursG > 1 ? ' × ' + joursG + ' j' : '') + chiensX + ' = ' + (T.garderie * joursG * nb) + '€');
+      var _jgr = Math.max(0, joursG - Math.min(nbEva, joursG));
+      if (_jgr > 0) lines.push('☀️ Garderie journée' + (d1 && d2 ? _du(d1, 0, nuits) : '') + chiensSuffix + ' | ' + T.garderie + '€' + (_jgr > 1 ? ' × ' + _jgr + ' j' : '') + chiensX + ' = ' + (T.garderie * _jgr * nb) + '€');
       brut = T.garderie * joursG; nbUnitesPleinTarif = joursG;
     } else if (service === 'demi') {
       var joursD = (d1 && d2) ? Math.max(1, nuits + 1) : 1;
@@ -3966,32 +3990,28 @@ function calcDevis() {
     }
 
     // ── FORFAIT ÉVASION COMBINÉ À UNE GARDE ──────────────────────────────
-    // Le forfait couvre la JOURNÉE du chien (randonnée de 9h à 17h).
-    //  • PENSION : on facture les nuits normalement + 35€ la journée d'Évasion.
-    //    Ex. lundi→dimanche (6 nuits) avec Évasion le samedi = 150 + 35 = 185€.
-    //    La nuit reste due : le chien dort quand même à la pension.
-    //  • GARDERIE / DEMI-JOURNÉE : là, la journée EST l'unité facturée. On ne
-    //    facture donc pas 20€ + 35€ mais seulement 35€ → on déduit la journée
-    //    déjà comptée, sinon le client paierait deux fois la même journée.
-    var evaEl = document.getElementById('f-evasion');
-    var nbEva = (evaEl && service !== 'evasion') ? (parseInt(evaEl.value) || 0) : 0;
+    // La journée d'Évasion est facturée 35€ AU LIEU du tarif normal de la
+    // journée/nuit : elle ne s'y ajoute pas. Les lignes du dessus ont déjà été
+    // réduites du nombre d'Évasions, on ajoute donc simplement ici une ligne
+    // lisible « 1 nuit Forfait Évasion — 35€ », sans aucun montant négatif.
     if (nbEva > 0 && service !== 'toilettage') {
-      // Tarif de la journée que l'Évasion remplace (0 pour la pension : les
-      // nuits ne sont pas des journées, elles restent dues).
       var tarifRemplace = (service === 'pension') ? T.pension
                         : (service === 'garderie') ? T.garderie
                         : (service === 'demi') ? T.demi
                         : (service === 'promenade') ? T.promenade : 0;
-      // On ne peut pas remplacer plus de journées qu'il n'y en a de facturées
-      var maxRemplacables = tarifRemplace > 0 ? nbUnitesPleinTarif : 0;
-      var nbRemplacees = Math.min(nbEva, maxRemplacables);
+      // Jamais plus d'Évasions que d'unités réellement facturées au plein tarif
+      var nbRemplacees = Math.min(nbEva, tarifRemplace > 0 ? nbUnitesPleinTarif : 0);
+      var motUnite = (service === 'pension') ? 'nuit' : 'journée';
+      var sPluriel = nbRemplacees > 1 ? 's' : '';
 
-      lines.push('🏔️ Forfait Évasion' + chiensSuffix + ' | ' + T.evasion + '€' + (nbEva > 1 ? ' × ' + nbEva + ' j' : '') + chiensX + ' = ' + (T.evasion * nbEva * nb) + '€');
       if (nbRemplacees > 0) {
-        var motRemplace = (service === 'pension')
-          ? ('Nuit' + (nbRemplacees > 1 ? 's' : '') + ' requalifiée' + (nbRemplacees > 1 ? 's' : '') + ' en Évasion')
-          : ('Journée' + (nbRemplacees > 1 ? 's' : '') + ' incluse' + (nbRemplacees > 1 ? 's' : '') + ' dans l\'Évasion');
-        lines.push('↳ ' + motRemplace + chiensSuffix + ' | −' + tarifRemplace + '€ × ' + nbRemplacees + chiensX + ' = −' + (tarifRemplace * nbRemplacees * nb) + '€');
+        lines.push('🏔️ ' + nbRemplacees + ' ' + motUnite + sPluriel + ' Forfait Évasion — randonnée incluse' + chiensSuffix
+                 + ' | ' + T.evasion + '€ × ' + nbRemplacees + chiensX + ' = ' + (T.evasion * nbRemplacees * nb) + '€');
+      }
+      // Évasions au-delà des unités facturées (ex. saisie d'une rando isolée)
+      var enSus = nbEva - nbRemplacees;
+      if (enSus > 0) {
+        lines.push('🏔️ Forfait Évasion' + chiensSuffix + ' | ' + T.evasion + '€ × ' + enSus + chiensX + ' = ' + (T.evasion * enSus * nb) + '€');
       }
       brut = brut - (tarifRemplace * nbRemplacees) + (T.evasion * nbEva);
     }
@@ -4065,6 +4085,17 @@ function buildDevisText(prenom, chien, tel, service, dateDebut, dateFin, heureAr
   txt += `💶 *TOTAL : ${total}*\n`;
   txt += `━━━━━━━━━━━━━━━━━━━━\n`;
   txt += `Paiement à la fin du séjour (espèces, virement ou PayPal)\n`;
+  txt += `━━━━━━━━━━━━━━━━━━━━\n`;
+  txt += `🕘 *Horaires d'accueil*\n`;
+  txt += `8h – 12h  et  13h30 – 19h\n`;
+  txt += `⏰ Merci de bien respecter l'heure de rendez-vous convenue.\n`;
+  txt += `━━━━━━━━━━━━━━━━━━━━\n`;
+  txt += `💡 *Comment se calcule le séjour*\n`;
+  txt += `• 1 nuit = du dépôt au retour le lendemain matin\n`;
+  txt += `• Arrivée après 13h30 : 1ère nuit en demi-journée (moins chère)\n`;
+  txt += `• Départ avant 13h : +½ journée · à partir de 14h : +1 journée\n`;
+  txt += `• Forfait Évasion : la journée de rando remplace le tarif normal, elle ne s'y ajoute pas\n`;
+  txt += `━━━━━━━━━━━━━━━━━━━━\n`;
   txt += `📞 07 77 23 40 88`;
   return txt;
 }
@@ -4607,6 +4638,7 @@ function _renderFacture(key, num, win) {
   h += '<div class="detail-box">'+(detail?detailToRows(detail):'<div class="inv-item full">'+svcLabel+'</div>')+'</div>';
   h += '<div class="total-block"><div class="total-lbl">Total à régler</div><div class="total-val">'+totalAff+'</div></div>';
   h += '<div style="text-align:right;font-size:.72rem;color:#9B96B0;margin-top:2px;">TVA non applicable, art. 293 B du CGI</div>';
+  h += blocHorairesHTML();
   h += '<div class="status-wrap"><span class="status-pill" style="background:'+payBg+';color:'+payColor+';border-color:'+payBorder+';">'+payLabel+'</span></div>';
   h += '<div class="footer" style="text-align:left;"><b style=\"color:#4A3F72;\">Conditions de règlement&nbsp;:</b> paiement à réception de la facture (à la fin du séjour). Moyens acceptés&nbsp;: espèces, virement, PayPal.<br>Retard de paiement&nbsp;: pénalités au taux de 3 fois le taux d’intérêt légal, sans rappel préalable&nbsp;; aucun escompte pour paiement anticipé.<br>Activité&nbsp;: garde, promenade et garderie de chiens — titulaire de l’ACACED.<br><span style=\"color:#9B96B0;\">Merci de votre confiance 🐾</span></div>';
   h += '<div class="btns">';
