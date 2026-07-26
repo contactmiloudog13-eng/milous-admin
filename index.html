@@ -744,6 +744,20 @@ function ejsSendRefuse(r, messageRefus) {
           </select></div>
           <div><label class="f-lbl">🏔️ Journées Forfait Évasion <span style="font-weight:400;color:var(--muted);">— remplacent la journée, ne s'ajoutent pas</span></label>
           <input id="f-evasion" type="number" min="0" step="1" value="" oninput="calcDevis()" placeholder="Ex : 1 — laisser vide si aucune" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.85rem;background:var(--bg);color:var(--text);"></div>
+          <div><label class="f-lbl">🦮 Balades en supplément <span style="font-weight:400;color:var(--muted);">— s'ajoutent au séjour</span></label>
+          <div style="display:grid;grid-template-columns:1.3fr .7fr 1fr;gap:6px;">
+            <select id="f-balade-type" onchange="calcDevis()" style="padding:9px 8px;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.82rem;background:var(--bg);color:var(--text);">
+              <option value="">Aucune</option>
+              <option value="30">30 min — 6€</option>
+              <option value="45">45 min — 9€</option>
+            </select>
+            <input id="f-balade-qte" type="number" min="1" step="1" value="1" oninput="calcDevis()" style="padding:9px 8px;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.82rem;background:var(--bg);color:var(--text);">
+            <select id="f-balade-freq" onchange="calcDevis()" style="padding:9px 8px;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.82rem;background:var(--bg);color:var(--text);">
+              <option value="jour">par jour</option>
+              <option value="semaine">par semaine</option>
+              <option value="total">au total</option>
+            </select>
+          </div></div>
           <div><label class="f-lbl">🚗 Supplément déplacement (récupération du chien)</label>
           <input id="f-deplacement" type="number" min="0" step="1" value="" oninput="calcDevis()" placeholder="Ex : 10 € — laisser vide si aucun" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.85rem;background:var(--bg);color:var(--text);"></div>
           <div><label class="f-lbl">💶 Prix personnalisé (optionnel — remplace le calcul auto)</label>
@@ -1363,7 +1377,7 @@ var _chartInst = null;
 var _caChartInst = null;
 
 // ═══ TARIFS PILOTABLES — source unique (site_config/tarifs), synchro temps réel ═══
-var TARIF_DEFAULTS = {pension:25, garderie:20, demi:10, promenade:15, toilettage:30, visite:15, remise2:10, remise3:15, packDuo:33, evasion:35,
+var TARIF_DEFAULTS = {pension:25, garderie:20, demi:10, promenade:15, toilettage:30, visite:15, remise2:10, remise3:15, packDuo:33, evasion:35, balade30:6, balade45:9,
   deplMiramas:10, deplFixe:5, deplKm:0.5,
   vChien:15, vChat:12, vFuret:13, vPoules:13, vLapin:10, vRongeur:10, vOiseau:10, vTortue:10, vPoisson:8, vSupp1h:5,
   carnetNights:10, carnetRemise:10};
@@ -3968,6 +3982,29 @@ function calcDevis() {
       brut = brut - (tarifRemplace * nbRemplacees) + (T.evasion * nbEva);
     }
 
+    // ── BALADES EN SUPPLÉMENT (30 min / 45 min) ──────────────────────────
+    // Prestation qui S'AJOUTE au séjour (contrairement à l'Évasion qui couvre
+    // la journée). La quantité se saisit par jour, par semaine, ou au total ;
+    // on affiche le détail du calcul pour que le client comprenne le nombre.
+    var balTypeEl = document.getElementById('f-balade-type');
+    var balType = balTypeEl ? balTypeEl.value : '';
+    if (balType) {
+      var prixBal = (balType === '45') ? T.balade45 : T.balade30;
+      var qteBal = parseInt((document.getElementById('f-balade-qte') || {}).value) || 1;
+      var freqBal = (document.getElementById('f-balade-freq') || {}).value || 'jour';
+      // Durée du séjour : nuits pour la pension, journées pour les autres
+      var joursSejour = (d1 && d2) ? ((service === 'pension') ? Math.max(1, nuits) : Math.max(1, nuits + 1)) : 1;
+      var semainesSejour = Math.max(1, Math.ceil(joursSejour / 7));
+      var nbBalades = (freqBal === 'jour') ? qteBal * joursSejour
+                    : (freqBal === 'semaine') ? qteBal * semainesSejour
+                    : qteBal;
+      var detailBal = (freqBal === 'jour') ? ' (' + qteBal + '/jour × ' + joursSejour + ' j)'
+                    : (freqBal === 'semaine') ? ' (' + qteBal + '/sem. × ' + semainesSejour + ' sem.)'
+                    : '';
+      lines.push('🦮 Balade ' + balType + ' min' + chiensSuffix + ' | ' + prixBal + '€ × ' + nbBalades + detailBal + chiensX + ' = ' + (prixBal * nbBalades * nb) + '€');
+      brut += prixBal * nbBalades;
+    }
+
     let sousTotal = brut * nb;
     if (nb >= 2) {
       const rate = nb >= 3 ? (T.remise3/100) : (T.remise2/100); // remises pilotables
@@ -4139,6 +4176,9 @@ function openDevisFromResa(idx) {
   var pmR=document.getElementById('f-prix-manuel'); if(pmR) pmR.value='';
   var depR=document.getElementById('f-deplacement'); if(depR) depR.value='';
   var evaR=document.getElementById('f-evasion'); if(evaR) evaR.value='';
+  var btR=document.getElementById('f-balade-type'); if(btR) btR.value='';
+  var bqR=document.getElementById('f-balade-qte'); if(bqR) bqR.value='1';
+  var bfR=document.getElementById('f-balade-freq'); if(bfR) bfR.value='jour';
   calcDevis();
   window._currentResaKey = getResaKey(r);
   genDevisManuel();
