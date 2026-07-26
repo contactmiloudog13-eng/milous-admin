@@ -709,6 +709,7 @@ function ejsSendRefuse(r, messageRefus) {
             <option value="garderie">☀️ Garderie journée — 20€/jour</option>
             <option value="demi">🌤️ Demi-journée — 10€</option>
             <option value="promenade">🦮 Promenade — 15€/sortie</option>
+            <option value="evasion">🏔️ Forfait Évasion — 35€/journée</option>
             <option value="toilettage">🛁 Toilettage — 30€</option>
           </select></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -741,6 +742,8 @@ function ejsSendRefuse(r, messageRefus) {
             <option value="2">2 chiens (−10%)</option>
             <option value="3">3 chiens (−15%)</option>
           </select></div>
+          <div><label class="f-lbl">🏔️ Journées Forfait Évasion <span style="font-weight:400;color:var(--muted);">— remplacent la journée, ne s'ajoutent pas</span></label>
+          <input id="f-evasion" type="number" min="0" step="1" value="" oninput="calcDevis()" placeholder="Ex : 1 — laisser vide si aucune" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.85rem;background:var(--bg);color:var(--text);"></div>
           <div><label class="f-lbl">🚗 Supplément déplacement (récupération du chien)</label>
           <input id="f-deplacement" type="number" min="0" step="1" value="" oninput="calcDevis()" placeholder="Ex : 10 € — laisser vide si aucun" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.85rem;background:var(--bg);color:var(--text);"></div>
           <div><label class="f-lbl">💶 Prix personnalisé (optionnel — remplace le calcul auto)</label>
@@ -1360,7 +1363,7 @@ var _chartInst = null;
 var _caChartInst = null;
 
 // ═══ TARIFS PILOTABLES — source unique (site_config/tarifs), synchro temps réel ═══
-var TARIF_DEFAULTS = {pension:25, garderie:20, demi:10, promenade:15, toilettage:30, visite:15, remise2:10, remise3:15, packDuo:33,
+var TARIF_DEFAULTS = {pension:25, garderie:20, demi:10, promenade:15, toilettage:30, visite:15, remise2:10, remise3:15, packDuo:33, evasion:35,
   deplMiramas:10, deplFixe:5, deplKm:0.5,
   vChien:15, vChat:12, vFuret:13, vPoules:13, vLapin:10, vRongeur:10, vOiseau:10, vTortue:10, vPoisson:8, vSupp1h:5,
   carnetNights:10, carnetRemise:10};
@@ -3818,7 +3821,7 @@ function updateMinDepart() {
 
 // Génère le HTML complet d'un devis (utilisé par le devis live ET l'historique → rendu identique)
 function devisCardHTML(d) {
-  var svcNames = {pension:'Pension complète', garderie:'Garderie journée', demi:'Demi-journée', promenade:'Promenade', toilettage:'Toilettage'};
+  var svcNames = {pension:'Pension complète', garderie:'Garderie journée', demi:'Demi-journée', promenade:'Promenade', evasion:'Forfait Évasion', toilettage:'Toilettage'};
   var dateStr = d.date || new Date().toLocaleDateString('fr-FR');
   var telClean = d.telClean || (d.tel||'').replace(/[^0-9]/g,'').replace(/^33/,'').replace(/^0/,'');
   var waUrl = 'https://wa.me/33'+telClean+'?text='+encodeURIComponent(d.txt||'');
@@ -3930,6 +3933,36 @@ function calcDevis() {
       var joursP = (d1 && d2) ? Math.max(1, nuits + 1) : 1;
       lines.push('🦮 Promenade' + chiensSuffix + ' | ' + T.promenade + '€' + (joursP > 1 ? ' × ' + joursP : '') + chiensX + ' = ' + (T.promenade * joursP * nb) + '€');
       brut = T.promenade * joursP;
+    } else if (service === 'evasion') {
+      // Forfait Évasion vendu seul (randonnée du samedi)
+      var joursE = parseInt(document.getElementById('f-evasion') && document.getElementById('f-evasion').value) || 1;
+      joursE = Math.max(1, joursE);
+      lines.push('🏔️ Forfait Évasion' + chiensSuffix + ' | ' + T.evasion + '€' + (joursE > 1 ? ' × ' + joursE + ' j' : '') + chiensX + ' = ' + (T.evasion * joursE * nb) + '€');
+      brut = T.evasion * joursE;
+    }
+
+    // ── FORFAIT ÉVASION COMBINÉ À UNE GARDE ──────────────────────────────
+    // Le jour d'Évasion REMPLACE la journée facturée, il ne s'y ajoute pas :
+    // le chien passe la journée en randonnée, on ne facture donc pas 25€ + 35€
+    // mais seulement les 35€. On ajoute le forfait et on déduit la journée
+    // qui a déjà été comptée dans le calcul ci-dessus.
+    var evaEl = document.getElementById('f-evasion');
+    var nbEva = (evaEl && service !== 'evasion') ? (parseInt(evaEl.value) || 0) : 0;
+    if (nbEva > 0 && service !== 'toilettage') {
+      // Tarif de la journée que l'Évasion remplace, selon le service choisi
+      var tarifRemplace = (service === 'pension') ? T.pension
+                        : (service === 'garderie') ? T.garderie
+                        : (service === 'demi') ? T.demi
+                        : (service === 'promenade') ? T.promenade : 0;
+      // On ne peut pas remplacer plus de journées qu'il n'y en a de facturées
+      var maxRemplacables = tarifRemplace > 0 ? Math.floor(brut / tarifRemplace) : 0;
+      var nbRemplacees = Math.min(nbEva, maxRemplacables);
+
+      lines.push('🏔️ Forfait Évasion' + chiensSuffix + ' | ' + T.evasion + '€' + (nbEva > 1 ? ' × ' + nbEva + ' j' : '') + chiensX + ' = ' + (T.evasion * nbEva * nb) + '€');
+      if (nbRemplacees > 0) {
+        lines.push('↳ Journée' + (nbRemplacees > 1 ? 's' : '') + ' incluse' + (nbRemplacees > 1 ? 's' : '') + ' dans l\'Évasion' + chiensSuffix + ' | −' + tarifRemplace + '€ × ' + nbRemplacees + chiensX + ' = −' + (tarifRemplace * nbRemplacees * nb) + '€');
+      }
+      brut = brut - (tarifRemplace * nbRemplacees) + (T.evasion * nbEva);
     }
 
     let sousTotal = brut * nb;
@@ -3946,7 +3979,7 @@ function calcDevis() {
   var pmEl = document.getElementById('f-prix-manuel');
   var pm = (pmEl && pmEl.value.trim() !== '') ? parseFloat(pmEl.value) : NaN;
   if (!isNaN(pm) && pm >= 0) {
-    var svcLbl = {pension:'🏠 Pension complète',garderie:'☀️ Garderie journée',demi:'🌤️ Demi-journée',promenade:'🦮 Promenade',toilettage:'🛁 Toilettage'}[service] || 'Prestation';
+    var svcLbl = {pension:'🏠 Pension complète',garderie:'☀️ Garderie journée',demi:'🌤️ Demi-journée',promenade:'🦮 Promenade',evasion:'🏔️ Forfait Évasion',toilettage:'🛁 Toilettage'}[service] || 'Prestation';
     lines = [svcLbl + ' | ' + pm + '€'];
     total = pm;
   }
@@ -3964,7 +3997,7 @@ function calcDevis() {
 }
 
 function buildDevisText(prenom, chien, tel, service, dateDebut, dateFin, heureArrivee, heureDepart, detail, total) {
-  const serviceName = {pension:'🏠 Pension complète',garderie:'☀️ Garderie journée',demi:'🌤️ Demi-journée',promenade:'🦮 Promenade',toilettage:'🛁 Toilettage'}[service] || service;
+  const serviceName = {pension:'🏠 Pension complète',garderie:'☀️ Garderie journée',demi:'🌤️ Demi-journée',promenade:'🦮 Promenade',evasion:'🏔️ Forfait Évasion',toilettage:'🛁 Toilettage'}[service] || service;
   let txt = `🐾 *DEVIS — Milou Dogs Provence*\n`;
   txt += `━━━━━━━━━━━━━━━━━━━━\n`;
   txt += `👤 Client : ${prenom}\n`;
@@ -4102,6 +4135,7 @@ function openDevisFromResa(idx) {
   // Repart d'un calcul propre : pas de prix perso ni de déplacement hérités
   var pmR=document.getElementById('f-prix-manuel'); if(pmR) pmR.value='';
   var depR=document.getElementById('f-deplacement'); if(depR) depR.value='';
+  var evaR=document.getElementById('f-evasion'); if(evaR) evaR.value='';
   calcDevis();
   window._currentResaKey = getResaKey(r);
   genDevisManuel();
@@ -4481,7 +4515,7 @@ function _renderFacture(key, num, win) {
   var payBorder = isPaid ? '#A5D6A7' : isPartial ? '#FFE082' : '#FFCDD2';
   var totalAff = (d.totalFacture && String(d.totalFacture).trim()) ? d.totalFacture : d.total;
   var dateStr = d.date || new Date().toLocaleDateString('fr-FR');
-  var svcLabel = {pension:'Pension complète',garderie:'Garderie journée',demi:'Demi-journée',promenade:'Promenade',toilettage:'Toilettage'}[d.service] || d.service || 'Prestation';
+  var svcLabel = {pension:'Pension complète',garderie:'Garderie journée',demi:'Demi-journée',promenade:'Promenade',evasion:'Forfait Évasion',toilettage:'Toilettage'}[d.service] || d.service || 'Prestation';
   // Détail : HTML sauvegardé sinon reconstruit depuis le texte WhatsApp
   var detail = d.detail;
   if (!detail && d.txt) {
