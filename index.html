@@ -3942,16 +3942,19 @@ function calcDevis() {
     }
 
     // ── FORFAIT ÉVASION COMBINÉ À UNE GARDE ──────────────────────────────
-    // Le jour d'Évasion REMPLACE la journée facturée, il ne s'y ajoute pas :
-    // le chien passe la journée en randonnée, on ne facture donc pas 25€ + 35€
-    // mais seulement les 35€. On ajoute le forfait et on déduit la journée
-    // qui a déjà été comptée dans le calcul ci-dessus.
+    // Le forfait couvre la JOURNÉE du chien (randonnée de 9h à 17h).
+    //  • PENSION : on facture les nuits normalement + 35€ la journée d'Évasion.
+    //    Ex. lundi→dimanche (6 nuits) avec Évasion le samedi = 150 + 35 = 185€.
+    //    La nuit reste due : le chien dort quand même à la pension.
+    //  • GARDERIE / DEMI-JOURNÉE : là, la journée EST l'unité facturée. On ne
+    //    facture donc pas 20€ + 35€ mais seulement 35€ → on déduit la journée
+    //    déjà comptée, sinon le client paierait deux fois la même journée.
     var evaEl = document.getElementById('f-evasion');
     var nbEva = (evaEl && service !== 'evasion') ? (parseInt(evaEl.value) || 0) : 0;
     if (nbEva > 0 && service !== 'toilettage') {
-      // Tarif de la journée que l'Évasion remplace, selon le service choisi
-      var tarifRemplace = (service === 'pension') ? T.pension
-                        : (service === 'garderie') ? T.garderie
+      // Tarif de la journée que l'Évasion remplace (0 pour la pension : les
+      // nuits ne sont pas des journées, elles restent dues).
+      var tarifRemplace = (service === 'garderie') ? T.garderie
                         : (service === 'demi') ? T.demi
                         : (service === 'promenade') ? T.promenade : 0;
       // On ne peut pas remplacer plus de journées qu'il n'y en a de facturées
