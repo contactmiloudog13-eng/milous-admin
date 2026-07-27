@@ -7733,10 +7733,22 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       var rows = (res.data && res.data.rows) || [];
       if(!rows.length){ alert('Aucun revenu gardien à déclarer pour '+year+'.'); status(''); return; }
       var esc = function(v){ v=(v==null?'':String(v)); return '"'+v.replace(/"/g,'""')+'"'; };
-      var head = ['Nom','Date naissance','Lieu naissance','Adresse','Pays','NIF','Email','Montant total (€)','Nb prestations','Compte Stripe','UID','A COMPLETER'];
+      // DAC7 impose une ventilation PAR TRIMESTRE : montant versé, nombre
+      // d'activités et commissions retenues, pour chacun des 4 trimestres.
+      var head = ['Nom','Date naissance','Lieu naissance','Adresse','Pays','NIF','Compte bancaire','Email',
+                  'T1 montant (€)','T1 nb','T1 commissions (€)',
+                  'T2 montant (€)','T2 nb','T2 commissions (€)',
+                  'T3 montant (€)','T3 nb','T3 commissions (€)',
+                  'T4 montant (€)','T4 nb','T4 commissions (€)',
+                  'Total annuel (€)','Nb prestations','Commissions totales (€)','Compte Stripe','UID','A COMPLETER'];
       var lines = [head.map(esc).join(';')];
+      var q = function(a,i){ return (a && a[i] != null) ? a[i] : 0; };
       rows.forEach(function(r){
-        lines.push([r.nom||r.nomProfil||'', r.dateNaissance||'', r.lieuNaissance||'', r.adresse||'', r.pays||'', r.nif||'NON COLLECTÉ', r.email||'', (r.montantTotal||0), r.nbPrestations||0, r.stripeAccount||'', r.uid||'', r.incomplet||''].map(esc).join(';'));
+        var l = [r.nom||r.nomProfil||'', r.dateNaissance||'', r.lieuNaissance||'', r.adresse||'', r.pays||'',
+                 r.nif||'NON COLLECTÉ', r.compteBancaire||'', r.email||''];
+        for(var i=0;i<4;i++){ l.push(q(r.montantTrim,i), q(r.nbTrim,i), q(r.commissionsTrim,i)); }
+        l.push(r.montantTotal||0, r.nbPrestations||0, r.commissionsTotal||0, r.stripeAccount||'', r.uid||'', r.incomplet||'');
+        lines.push(l.map(esc).join(';'));
       });
       var csv = '﻿'+lines.join('\r\n');
       var blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
