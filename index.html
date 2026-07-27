@@ -1192,6 +1192,7 @@ function ejsSendRefuse(r, messageRefus) {
         <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
           <button class="refresh-btn" onclick="mpExportCSV()" style="border:1.5px solid #4A3F8F;color:#4A3F8F;background:#fff;">📤 Export comptable (CSV)</button>
           <button class="refresh-btn" onclick="mpDac7()" style="border:1.5px solid #B8860B;color:#8a6508;background:#fff;" title="Déclaration annuelle des revenus des gardiens au fisc (obligatoire avant le 31 janvier)">🏛️ Export fiscal DAC7</button>
+          <button class="refresh-btn" onclick="mpDac7Copies()" style="border:1.5px solid #B8860B;color:#8a6508;background:#fff;" title="La directive DAC7 impose d'envoyer à chaque gardien une copie des informations déclarées le concernant, avant le 31 janvier. C'est automatique en janvier — ce bouton sert à forcer l'envoi ou à relancer.">✉️ Copies DAC7 aux gardiens</button>
           <button class="refresh-btn" onclick="mpOpenBroadcast('gardiens')" style="border:1.5px solid #7C6FE0;color:#7C6FE0;background:#fff;">📣 Message à tous les gardiens</button>
           <button class="refresh-btn" onclick="mpOpenBroadcast('clients')" style="border:1.5px solid #2EBD8E;color:#159067;background:#fff;">📣 Message à tous les clients</button>
         </div>
@@ -7732,10 +7733,10 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       var rows = (res.data && res.data.rows) || [];
       if(!rows.length){ alert('Aucun revenu gardien à déclarer pour '+year+'.'); status(''); return; }
       var esc = function(v){ v=(v==null?'':String(v)); return '"'+v.replace(/"/g,'""')+'"'; };
-      var head = ['Nom','Date naissance','Adresse','Pays','NIF','Email','Montant total (€)','Nb prestations','Compte Stripe','UID'];
+      var head = ['Nom','Date naissance','Lieu naissance','Adresse','Pays','NIF','Email','Montant total (€)','Nb prestations','Compte Stripe','UID','A COMPLETER'];
       var lines = [head.map(esc).join(';')];
       rows.forEach(function(r){
-        lines.push([r.nom||r.nomProfil||'', r.dateNaissance||'', r.adresse||'', r.pays||'', r.nif||'NON COLLECTÉ', r.email||'', (r.montantTotal||0), r.nbPrestations||0, r.stripeAccount||'', r.uid||''].map(esc).join(';'));
+        lines.push([r.nom||r.nomProfil||'', r.dateNaissance||'', r.lieuNaissance||'', r.adresse||'', r.pays||'', r.nif||'NON COLLECTÉ', r.email||'', (r.montantTotal||0), r.nbPrestations||0, r.stripeAccount||'', r.uid||'', r.incomplet||''].map(esc).join(';'));
       });
       var csv = '﻿'+lines.join('\r\n');
       var blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
@@ -7746,7 +7747,29 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       var manquants = rows.filter(function(r){ return !r.nif; }).length;
       if(window.showToast) showToast('📄 DAC7 '+year+' : '+rows.length+' gardien(s) exporté(s)');
       status('');
-      if(manquants>0){ alert('⚠️ '+manquants+' gardien(s) sans NIF (numéro fiscal).\n\nActive « Tax reporting / DAC7 » dans le dashboard Stripe (Settings → Connect) pour que Stripe collecte le NIF à l\'inscription. Les gardiens déjà inscrits devront le renseigner.'); }
+      var incomplets = rows.filter(function(r){ return r.incomplet; }).length;
+      if(incomplets>0){ alert('⚠️ '+incomplets+' gardien(s) sur '+rows.length+' ont un dossier incomplet (colonne « A COMPLETER »).\n\nLe gardien renseigne lui-même son NIF dans son espace → « Informations fiscales ». Il est relancé automatiquement par email dès qu\'il a des gains, et le retrait est bloqué tant que le NIF manque.\n\nUne ligne incomplète ne peut pas être déclarée en l\'état.'); }
+    }).catch(function(e){ alert('Erreur : '+e.message); status('Erreur'); });
+  };
+
+  // Copie DAC7 au gardien : obligation légale distincte de la déclaration au
+  // fisc. Envoi automatique chaque janvier ; ce bouton force ou relance.
+  window.mpDac7Copies = function(){
+    var year = prompt('Envoyer à chaque gardien la copie de ses informations déclarées.\n\nAnnée concernée :', String(new Date().getFullYear()-1));
+    if(!year) return;
+    year = parseInt(year,10);
+    if(!year || year<2024){ alert('Année invalide.'); return; }
+    var relancer = confirm('Renvoyer aussi aux gardiens déjà notifiés pour '+year+' ?\n\nOK = tout le monde reçoit (utile après correction)\nAnnuler = seulement ceux qui n\'ont rien reçu');
+    status('Envoi des copies DAC7 '+year+'…');
+    var fn = window._mpApp.functions('europe-west1').httpsCallable('mpDac7Copies');
+    fn({ year:year, relancer:relancer }).then(function(res){
+      var d = res.data || {};
+      var msg = '✉️ Copies DAC7 '+year+'\n\n'
+        + 'Gardiens concernés : '+(d.total||0)+'\n'
+        + 'Emails envoyés     : '+(d.envoyes||0)+'\n'
+        + 'Déjà notifiés      : '+(d.ignores||0)+'\n'
+        + 'Sans email         : '+(d.sansEmail||0);
+      alert(msg); status('');
     }).catch(function(e){ alert('Erreur : '+e.message); status('Erreur'); });
   };
 
