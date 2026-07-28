@@ -7550,7 +7550,9 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
     var MSGS = {
       id:  { title:'🪪 Pièce d\'identité manquante',
              body:'Bonjour '+prenom+' ! Pour publier votre profil et recevoir des demandes, envoyez votre pièce d\'identité depuis votre espace gardien (2 minutes).',
-             link:'espace-gardien.html' },
+             // L'ancre #id est indispensable : sans elle, l'espace gardien ouvrait
+             // l'onglet portefeuille (RIB) au lieu de la carte pièce d'identité.
+             link:'espace-gardien.html#id' },
       pay: { title:'💳 Activez vos paiements',
              body:'Bonjour '+prenom+' ! Activez vos paiements (identité + RIB, 2 minutes) pour pouvoir accepter des gardes et recevoir votre argent.',
              link:'activer-paiements.html' }
