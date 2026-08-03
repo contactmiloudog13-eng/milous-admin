@@ -1213,7 +1213,9 @@ function ejsSendRefuse(r, messageRefus) {
             <option value="all">Tous</option>
             <option value="attente">⏳ En attente de validation</option>
             <option value="valide">🛡️ Validés</option>
-            <option value="premium">⭐ Premium</option>
+            <option value="premium">⭐ Premium payant</option>
+            <option value="boost">🔝 Mis en avant</option>
+            <option value="nonif">🧾 NIF manquant</option>
           </select>
         </div>
         <div id="mp-gardiens"><div class="loading">Chargement…</div></div>
@@ -1254,6 +1256,14 @@ function ejsSendRefuse(r, messageRefus) {
         <div style="font-size:.8rem;color:var(--muted);margin-bottom:10px;">Lecture seule. ⚠️ = tentative de contact direct détectée.</div>
         <input id="mp-search-convos" oninput="mpFilterConvos()" placeholder="🔍 Rechercher (client, gardien)…" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:.85rem;background:var(--bg);color:var(--text);margin-bottom:10px;">
         <div id="mp-convos"><div class="loading">Chargement…</div></div>
+      </div>
+
+      <div class="panel" id="mp-sec-signups" style="margin-bottom:18px;">
+        <div class="panel-title" style="display:flex;align-items:center;justify-content:space-between;">🆕 Nouvelles inscriptions
+          <span id="mp-signups-badge" style="display:none;background:#1E9E6A;color:#fff;font-size:.72rem;font-weight:700;border-radius:20px;padding:2px 9px;"></span>
+        </div>
+        <div style="font-size:.74rem;color:var(--muted);margin:-4px 0 8px;">Chaque nouveau gardien ou client apparaît ici — et vous recevez aussi un email.</div>
+        <div id="mp-signups"><div class="loading">Chargement…</div></div>
       </div>
 
       <div class="panel" id="mp-sec-alerts" style="margin-bottom:18px;">
@@ -7059,8 +7069,9 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
   function mpInfo(icon,label,val){ return '<div style="font-size:.74rem;color:var(--muted);background:var(--bg);border-radius:8px;padding:5px 8px;"><span style="font-weight:700;color:var(--lav-d);">'+icon+' '+label+' :</span> '+esc(val)+'</div>'; }
 
   // ── Carte gardien détaillée ──
-  function mpGardienCard(g, u, wallet){
-    u = u || {};
+  function mpGardienCard(g, u, wallet, priv){
+    u = u || {}; priv = priv || {};
+    var fisc = priv.fiscal || {};
     var prenom = g.nom || u.prenom || '—';
     var nomFam = u.nom || '';
     var photo = g.photoUrl
@@ -7075,8 +7086,11 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
     if(g.idStatus==='valide')      chips += mpChip('🪪 Pièce validée','#E3F5EC','#1E9E6A');
     else if(g.idStatus==='soumis') chips += mpChip('🪪 Pièce reçue — à contrôler','#E7F0FF','#1E5FBF');
     else                           chips += mpChip('🪪 Pièce manquante','#FDECEA','#c0392b');
-    if(g.premium) chips += mpChip('⭐ Premium','#FFF3D6','#C77700');
+    if(g.premium) chips += mpChip('⭐ Premium payant','#FFF3D6','#C77700');
+    if(g.boost)   chips += mpChip('🔝 Mis en avant','#EEEBFB','#4A3F8F');
     chips += g.chargesEnabled ? mpChip('💳 Paiements actifs','#E3F5EC','#1E9E6A') : mpChip('💳 Paiements non activés','#F3F0FA','#6B52B7');
+    // NIF (directive DAC7) : sans lui, aucun versement n'est possible au gardien.
+    chips += fisc.nif ? mpChip('🧾 NIF fourni','#E3F5EC','#1E9E6A') : mpChip('🧾 NIF manquant','#FDECEA','#c0392b');
     if(u.bloque===true) chips += mpChip('🚫 Bloqué','#FDECEA','#c0392b');
 
     // Grille infos privées (admin voit tout)
@@ -7088,6 +7102,25 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
     if(g.note) infos.push(mpInfo('⭐','Note',Number(g.note).toFixed(1)+' ('+(g.nbAvis||0)+' avis)'));
     if(g.prixMin) infos.push(mpInfo('💶','À partir de',eur(g.prixMin)));
     var infosHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:10px 0;">'+infos.join('')+'</div>';
+
+    // ── Bloc fiscal (DAC7) ──
+    // Le NIF conditionne le versement des gains : tant qu'il manque, la fonction
+    // gardienPayout refuse le retrait. On l'affiche donc en clair, avec le pays
+    // et le lieu de naissance qui complètent la déclaration annuelle.
+    var fiscalHtml;
+    if(fisc.nif){
+      fiscalHtml = '<div style="background:#E3F5EC;border:1px solid #b7e3ce;border-radius:10px;padding:8px 11px;margin:8px 0;">'
+        + '<div style="font-size:.72rem;font-weight:800;color:#1E9E6A;margin-bottom:4px;">🧾 Informations fiscales (DAC7)</div>'
+        + '<div style="font-size:.8rem;color:#14603f;">Numéro fiscal (NIF) : <b style="font-family:monospace;font-size:.86rem;">'+esc(fisc.nif)+'</b></div>'
+        + '<div style="font-size:.72rem;color:var(--muted);margin-top:2px;">'
+        +   'Pays : '+esc(fisc.pays||'—')+' · Lieu de naissance : '+esc(fisc.naissanceLieu||'—')
+        + '</div></div>';
+    } else {
+      fiscalHtml = '<div style="background:#FDECEA;border:1px solid #f3c0bb;border-radius:10px;padding:8px 11px;margin:8px 0;">'
+        + '<div style="font-size:.72rem;font-weight:800;color:#c0392b;margin-bottom:2px;">🧾 Numéro fiscal (NIF) manquant</div>'
+        + '<div style="font-size:.74rem;color:#8a3227;">Obligatoire (directive DAC7). Tant qu\'il manque, ce gardien <b>ne peut pas retirer ses gains</b>.</div>'
+        + '</div>';
+    }
 
     // Services chiens/chats
     var svc='';
@@ -7133,11 +7166,17 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       ? '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;" onclick="mpValider(\''+g.id+'\',false)">Dépublier le profil</button>'
       : '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#7C6FE0;color:#fff;border:none;" onclick="mpValider(\''+g.id+'\',true)">✓ Publier le profil sur le site</button>';
     acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;" onclick="mpToggleId(\''+g.id+'\')">'+(g.idStatus==='valide'?'🪪 Marquer pièce non validée':'🪪 Marquer pièce validée')+'</button>';
+    // ── Mise en avant manuelle (gratuite, décidée ici) ──
+    acts += g.boost
+      ? '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;" onclick="mpBoost(\''+g.id+'\',false,\''+esc(prenom)+'\')">🔝 Retirer la mise en avant</button>'
+      : '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#EEEBFB;color:#4A3F8F;border:1.5px solid #b9aee8;" onclick="mpBoost(\''+g.id+'\',true,\''+esc(prenom)+'\')">🔝 Mettre en haut des résultats</button>';
     // ── Relances en 1 clic (notification dans la cloche du gardien) ──
     if(g.idStatus!=='valide' && g.idStatus!=='soumis')
       acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#FFF3D6;color:#9a6a00;border:1.5px solid #e8c97a;" onclick="mpRelance(\''+g.id+'\',\'id\',\''+esc(prenom)+'\')">📩 Relancer : pièce d\'identité</button>';
     if(!g.chargesEnabled)
       acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#FFF3D6;color:#9a6a00;border:1.5px solid #e8c97a;" onclick="mpRelance(\''+g.id+'\',\'pay\',\''+esc(prenom)+'\')">📩 Relancer : activer paiements</button>';
+    if(!fisc.nif)
+      acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#FFF3D6;color:#9a6a00;border:1.5px solid #e8c97a;" onclick="mpRelance(\''+g.id+'\',\'nif\',\''+esc(prenom)+'\')">📩 Relancer : numéro fiscal</button>';
     acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;" onclick="mpRelance(\''+g.id+'\',\'libre\',\''+esc(prenom)+'\')">✉️ Message libre</button>';
     var gBlocked = u.bloque === true;
     acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;'+(gBlocked?'background:#1E9E6A;color:#fff;border:none;':'background:#fff3f3;color:#c0392b;border:1.5px solid #c0392b;')+'" onclick="mpSetBlock(\''+g.id+'\','+(!gBlocked)+',\''+esc(prenom)+'\')">'+(gBlocked?'✅ Débloquer':'🚫 Bloquer')+'</button>';
@@ -7159,8 +7198,8 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       + '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;">'+chips+'</div></div>'
       + '<span class="client-acc-chev">▾</span></summary>';
 
-    return '<details class="client-acc mp-gardien" data-verifie="'+(g.verifie?1:0)+'" data-premium="'+(g.premium?1:0)+'" data-search="'+esc(((prenom+' '+nomFam+' '+(g.ville||'')+' '+(u.email||'')).toLowerCase()))+'" style="margin:8px 0;">'
-      + summary + '<div class="client-acc-body">' + infosHtml + walletHtml + offre + lgHtml + dispoHtml + bioHtml + acts + '</div></details>';
+    return '<details class="client-acc mp-gardien" data-verifie="'+(g.verifie?1:0)+'" data-premium="'+(g.premium?1:0)+'" data-boost="'+(g.boost?1:0)+'" data-nif="'+(fisc.nif?1:0)+'" data-search="'+esc(((prenom+' '+nomFam+' '+(g.ville||'')+' '+(u.email||'')).toLowerCase()))+'" style="margin:8px 0;">'
+      + summary + '<div class="client-acc-body">' + infosHtml + fiscalHtml + walletHtml + offre + lgHtml + dispoHtml + bioHtml + acts + '</div></details>';
   }
 
   // ── Carte client détaillée (avec ses animaux) ──
@@ -7223,9 +7262,14 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       window._mpDb.ref('milouPets/conversations').once('value').catch(function(){return null;}),
       window._mpDb.ref('milouPets/adminAlerts').once('value').catch(function(){return null;}),
       window._mpDb.ref('milouPets/bugReports').once('value').catch(function(){return null;}),
-      window._mpDb.ref('milouPets/searchLog').once('value').catch(function(){return null;})
+      window._mpDb.ref('milouPets/searchLog').once('value').catch(function(){return null;}),
+      // Nœud privé du gardien : numéro fiscal (DAC7), acceptations CGV, exigences
+      // Stripe. Lisible par les admins uniquement — d'où le .catch qui évite de
+      // casser tout le chargement si les droits venaient à changer.
+      window._mpDb.ref('milouPets/gardiensPrive').once('value').catch(function(){return null;})
     ]).then(function(res){
-      var gardSnap=res[0], userSnap=res[1], petSnap=res[2], resaSnap=res[3], avisSnap=res[4], reportSnap=res[5], convoSnap=res[6], alertSnap=res[7], bugSnap=res[8], searchSnap=res[9];
+      var gardSnap=res[0], userSnap=res[1], petSnap=res[2], resaSnap=res[3], avisSnap=res[4], reportSnap=res[5], convoSnap=res[6], alertSnap=res[7], bugSnap=res[8], searchSnap=res[9], privSnap=res[10];
+      var PRIVE={}; if(privSnap && privSnap.exists()){ privSnap.forEach(function(c){ PRIVE[c.key]=c.val()||{}; }); }
       if(!window._mpRT) mpInitRealtime();   // temps réel + sons (une seule fois)
 
       // Maps
@@ -7266,7 +7310,7 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       if(!gardiens.length){ gbox.innerHTML='<div style="color:var(--muted);padding:14px;text-align:center;">Aucun gardien inscrit pour l\'instant.</div>'; }
       else {
         gardiens.sort(function(a,b){ return (a.verifie?1:0)-(b.verifie?1:0); });
-        gbox.innerHTML=gardiens.map(function(g){ return mpGardienCard(g, USERS[g.id], WALLETS[g.id]); }).join('');
+        gbox.innerHTML=gardiens.map(function(g){ return mpGardienCard(g, USERS[g.id], WALLETS[g.id], PRIVE[g.id]); }).join('');
       }
 
       // ── Rendu clients (users non-gardiens) ──
@@ -7489,11 +7533,40 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
         }
       }
 
-      // ── Alertes contact direct ──
+      // ── Alertes : deux natures très différentes dans le même nœud ──
+      // « signup » = une inscription (bonne nouvelle), le reste = un incident.
+      // On les sépare pour qu'une inscription n'atterrisse pas dans un encadré
+      // rouge intitulé « Tentatives de contact direct ».
       var albox=document.getElementById('mp-alerts');
-      var alerts=[];
-      if(alertSnap && alertSnap.exists()){ alertSnap.forEach(function(a){ var v=a.val()||{}; v._id=a.key; alerts.push(v); }); }
-      alerts.sort(function(a,b){ return (b.at||0)-(a.at||0); });
+      var alertsAll=[];
+      if(alertSnap && alertSnap.exists()){ alertSnap.forEach(function(a){ var v=a.val()||{}; v._id=a.key; alertsAll.push(v); }); }
+      alertsAll.sort(function(a,b){ return (b.at||0)-(a.at||0); });
+      var signups = alertsAll.filter(function(a){ return a.type==='signup'; });
+      var alerts  = alertsAll.filter(function(a){ return a.type!=='signup'; });
+
+      // ── Nouvelles inscriptions ──
+      var subox=document.getElementById('mp-signups');
+      var nUnreadSignups=signups.filter(function(a){return !a.read;}).length;
+      var suBadge=document.getElementById('mp-signups-badge');
+      if(suBadge){ if(nUnreadSignups){ suBadge.textContent=nUnreadSignups+' nouveau'+(nUnreadSignups>1?'x':''); suBadge.style.display='inline-block'; } else { suBadge.style.display='none'; } }
+      if(subox){
+        if(!signups.length){ subox.innerHTML='<div style="color:var(--muted);padding:14px;text-align:center;">Aucune inscription pour le moment.</div>'; }
+        else {
+          subox.innerHTML=signups.slice(0,40).map(function(a){
+            var estG=a.role==='gardien';
+            var quand=a.at?new Date(a.at).toLocaleString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+            return '<div style="border:1px solid '+(estG?'#b9aee8':'#b7e3ce')+';border-left:4px solid '+(estG?'#4A3F8F':'#1E9E6A')+';background:'+(a.read?'#fff':(estG?'#F7F5FE':'#F4FBF7'))+';border-radius:10px;padding:10px 12px;margin-bottom:8px;">'
+              + '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">'
+              +   '<div style="font-size:.84rem;font-weight:800;color:'+(estG?'#4A3F8F':'#1E9E6A')+';">'+(estG?'🏠 Nouveau gardien':'🎉 Nouveau client')+' — '+esc(a.nom||'Sans nom')+'</div>'
+              +   '<div style="font-size:.72rem;color:var(--muted);">'+esc(quand)+'</div>'
+              + '</div>'
+              + '<div style="font-size:.76rem;color:var(--muted);margin:3px 0 6px;">'+esc([a.email,a.ville].filter(Boolean).join(' · ')||'—')+'</div>'
+              + (a.read?'':'<button class="refresh-btn" style="padding:4px 10px;font-size:.72rem;" onclick="mpDismissAlert(\''+a._id+'\')">✓ Vu</button>')
+              + '</div>';
+          }).join('');
+        }
+      }
+
       var nUnreadAlerts=alerts.filter(function(a){return !a.read;}).length;
       var alertsBadge=document.getElementById('mp-alerts-badge');
       if(alertsBadge){ if(nUnreadAlerts){ alertsBadge.textContent=nUnreadAlerts; alertsBadge.style.display='inline-block'; } else { alertsBadge.style.display='none'; } }
@@ -7507,11 +7580,14 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
             var convTitle = cv?(esc(mpFullName(cv.clientUid,cv.clientNom||'Client'))+' ↔ '+esc(mpFullName(cv.gardienId,cv.gardienNom||'Gardien'))):'Conversation signalée';
             return '<div style="border:1px solid #f3c0bb;border-left:4px solid #c0392b;background:'+(a.read?'#fff':'#FFF5F5')+';border-radius:10px;padding:10px 12px;margin-bottom:8px;">'
               + pair
-              + '<div style="font-size:.8rem;font-weight:700;color:#c0392b;">🚨 '+esc(a.fromName||'Utilisateur')+' a tenté un contact direct'+(a.motifs?' · '+esc((a.motifs||[]).join(', ')):'')+'</div>'
+              // La Cloud Function écrit « nom »/« uid » ; l'affichage ne lisait que
+              // « fromName »/« fromUid » → toutes les alertes s'affichaient
+              // « Utilisateur » et le bouton « Avertir l'auteur » n'apparaissait jamais.
+              + '<div style="font-size:.8rem;font-weight:700;color:#c0392b;">🚨 '+esc(a.fromName||a.nom||'Utilisateur')+' a tenté un contact direct'+(a.motifs?' · '+esc((a.motifs||[]).join(', ')):'')+'</div>'
               + '<div style="font-size:.82rem;color:var(--muted);margin:4px 0;">« '+esc(a.text||'')+' »</div>'
               + '<div style="display:flex;gap:6px;">'
               + (a.convId?'<button class="refresh-btn" style="padding:4px 10px;font-size:.72rem;" onclick="mpViewConvo(\''+a.convId+'\',\''+convTitle+'\')">💬 Voir la conversation</button>':'')
-              + (a.fromUid?'<button class="refresh-btn" style="padding:4px 10px;font-size:.72rem;background:#c0392b;color:#fff;border-color:#c0392b;" onclick="mpWarnUser(\''+a.fromUid+'\')">⚠️ Avertir l\'auteur</button>':'')
+              + ((a.fromUid||a.uid)?'<button class="refresh-btn" style="padding:4px 10px;font-size:.72rem;background:#c0392b;color:#fff;border-color:#c0392b;" onclick="mpWarnUser(\''+(a.fromUid||a.uid)+'\')">⚠️ Avertir l\'auteur</button>':'')
               + '<button class="refresh-btn" style="padding:4px 10px;font-size:.72rem;" onclick="mpDismissAlert(\''+a._id+'\')">✓ Marquer traité</button></div></div>';
           }).join('');
         }
@@ -7555,7 +7631,12 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
              link:'espace-gardien.html#id' },
       pay: { title:'💳 Activez vos paiements',
              body:'Bonjour '+prenom+' ! Activez vos paiements (identité + RIB, 2 minutes) pour pouvoir accepter des gardes et recevoir votre argent.',
-             link:'activer-paiements.html' }
+             link:'activer-paiements.html' },
+      // L'ancre #wallet ouvre directement l'onglet Portefeuille, où se trouve la
+      // carte « Informations fiscales » — même logique que l'ancre #id ci-dessus.
+      nif: { title:'🧾 Votre numéro fiscal est manquant',
+             body:'Bonjour '+prenom+' ! Renseignez votre numéro fiscal (NIF) dans « Informations fiscales ». C\'est obligatoire (directive européenne DAC7) et sans lui vous ne pouvez pas retirer vos gains.',
+             link:'espace-gardien.html#wallet' }
     };
     var m = MSGS[type];
     if(!m){
@@ -7581,6 +7662,17 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       .catch(function(e){ alert('Action impossible : '+e.message); });
   };
 
+  // ── Mise en avant manuelle d'un gardien (gratuite) ──
+  // Écrit « boost », PAS « premium » : le Premium reste réservé aux abonnements
+  // réellement payés, sinon la statistique « Abonnements » compterait des
+  // 4,90 € qui n'ont jamais été encaissés.
+  window.mpBoost = function(id, val, prenom){
+    window._mpDb.ref('milouPets/gardiens/'+id).update({ boost: !!val }).then(function(){
+      if(window.showToast) showToast(val ? '🔝 '+prenom+' est en haut des résultats' : 'Mise en avant retirée');
+      mpLoadData();
+    }).catch(function(e){ alert('Action impossible : '+e.message); });
+  };
+
   window.mpValider = function(id, val){
     window._mpDb.ref('milouPets/gardiens/'+id).update({verifie:val}).then(function(){
       if(window.showToast) showToast(val?'✅ Gardien validé':'Gardien retiré');
@@ -7597,7 +7689,7 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
   };
 
   window.mpShowSection = function(name){
-    ["pilotage","gardiens","clients","resas","wallets","convos","alerts","avis","bugs"].forEach(function(sname){
+    ["pilotage","gardiens","clients","resas","wallets","convos","signups","alerts","avis","bugs"].forEach(function(sname){
       var el=document.getElementById("mp-sec-"+sname);
       if(el) el.style.display=(name==="all"||name===sname)?"":"none";
     });
@@ -7665,7 +7757,7 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
     var f=document.getElementById('mp-filter-gardiens').value;
     document.querySelectorAll('#mp-gardiens .mp-gardien').forEach(function(el){
       var okQ=!q||(el.getAttribute('data-search')||'').indexOf(q)!==-1;
-      var okF=f==='all'||(f==='attente'&&el.getAttribute('data-verifie')==='0')||(f==='valide'&&el.getAttribute('data-verifie')==='1')||(f==='premium'&&el.getAttribute('data-premium')==='1');
+      var okF=f==='all'||(f==='attente'&&el.getAttribute('data-verifie')==='0')||(f==='valide'&&el.getAttribute('data-verifie')==='1')||(f==='premium'&&el.getAttribute('data-premium')==='1')||(f==='boost'&&el.getAttribute('data-boost')==='1')||(f==='nonif'&&el.getAttribute('data-nif')==='0');
       el.style.display=(okQ&&okF)?'':'none';
     });
   };
