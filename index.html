@@ -7090,7 +7090,12 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
     if(g.boost)   chips += mpChip('🔝 Mis en avant','#EEEBFB','#4A3F8F');
     chips += g.chargesEnabled ? mpChip('💳 Paiements actifs','#E3F5EC','#1E9E6A') : mpChip('💳 Paiements non activés','#F3F0FA','#6B52B7');
     // NIF (directive DAC7) : sans lui, aucun versement n'est possible au gardien.
-    chips += fisc.nif ? mpChip('🧾 NIF fourni','#E3F5EC','#1E9E6A') : mpChip('🧾 NIF manquant','#FDECEA','#c0392b');
+    // Si le nœud privé n'a pas pu être lu, on le DIT — annoncer « manquant » sans
+    // avoir réussi à regarder, c'est afficher une information fausse.
+    var nifIllisible = !fisc.nif && window._mpPrivErr;
+    chips += fisc.nif ? mpChip('🧾 NIF fourni','#E3F5EC','#1E9E6A')
+           : nifIllisible ? mpChip('🧾 NIF — lecture impossible','#FFF3D6','#9a6a00')
+           : mpChip('🧾 NIF manquant','#FDECEA','#c0392b');
     if(u.bloque===true) chips += mpChip('🚫 Bloqué','#FDECEA','#c0392b');
 
     // Grille infos privées (admin voit tout)
@@ -7115,6 +7120,11 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
         + '<div style="font-size:.72rem;color:var(--muted);margin-top:2px;">'
         +   'Pays : '+esc(fisc.pays||'—')+' · Lieu de naissance : '+esc(fisc.naissanceLieu||'—')
         + '</div></div>';
+    } else if(nifIllisible){
+      fiscalHtml = '<div style="background:#FFF3D6;border:1px solid #e8c97a;border-radius:10px;padding:8px 11px;margin:8px 0;">'
+        + '<div style="font-size:.72rem;font-weight:800;color:#9a6a00;margin-bottom:2px;">🧾 Informations fiscales illisibles</div>'
+        + '<div style="font-size:.74rem;color:#7a5300;">Impossible de lire le nœud privé ('+esc(window._mpPrivErr)+'). Le gardien a peut-être bien renseigné son NIF — ne le relancez pas sans avoir vérifié.</div>'
+        + '</div>';
     } else {
       fiscalHtml = '<div style="background:#FDECEA;border:1px solid #f3c0bb;border-radius:10px;padding:8px 11px;margin:8px 0;">'
         + '<div style="font-size:.72rem;font-weight:800;color:#c0392b;margin-bottom:2px;">🧾 Numéro fiscal (NIF) manquant</div>'
@@ -7175,7 +7185,9 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#FFF3D6;color:#9a6a00;border:1.5px solid #e8c97a;" onclick="mpRelance(\''+g.id+'\',\'id\',\''+esc(prenom)+'\')">📩 Relancer : pièce d\'identité</button>';
     if(!g.chargesEnabled)
       acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#FFF3D6;color:#9a6a00;border:1.5px solid #e8c97a;" onclick="mpRelance(\''+g.id+'\',\'pay\',\''+esc(prenom)+'\')">📩 Relancer : activer paiements</button>';
-    if(!fisc.nif)
+    // Pas de bouton de relance quand on n'a pas pu lire : relancer quelqu'un qui
+    // a déjà rempli son NIF, c'est le pire des messages à lui envoyer.
+    if(!fisc.nif && !nifIllisible)
       acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#FFF3D6;color:#9a6a00;border:1.5px solid #e8c97a;" onclick="mpRelance(\''+g.id+'\',\'nif\',\''+esc(prenom)+'\')">📩 Relancer : numéro fiscal</button>';
     acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;" onclick="mpRelance(\''+g.id+'\',\'libre\',\''+esc(prenom)+'\')">✉️ Message libre</button>';
     var gBlocked = u.bloque === true;
@@ -7264,9 +7276,13 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       window._mpDb.ref('milouPets/bugReports').once('value').catch(function(){return null;}),
       window._mpDb.ref('milouPets/searchLog').once('value').catch(function(){return null;}),
       // Nœud privé du gardien : numéro fiscal (DAC7), acceptations CGV, exigences
-      // Stripe. Lisible par les admins uniquement — d'où le .catch qui évite de
-      // casser tout le chargement si les droits venaient à changer.
-      window._mpDb.ref('milouPets/gardiensPrive').once('value').catch(function(){return null;})
+      // Stripe. Lisible par les admins uniquement. En cas d'échec on MÉMORISE
+      // l'erreur : un .catch muet faisait passer « je n'ai pas pu lire » pour
+      // « le gardien n'a rien rempli », ce qui est un mensonge à l'écran.
+      (function(){ window._mpPrivErr=null;
+        return window._mpDb.ref('milouPets/gardiensPrive').once('value')
+          .catch(function(e){ window._mpPrivErr=(e&&e.message)||'accès refusé'; return null; });
+      })()
     ]).then(function(res){
       var gardSnap=res[0], userSnap=res[1], petSnap=res[2], resaSnap=res[3], avisSnap=res[4], reportSnap=res[5], convoSnap=res[6], alertSnap=res[7], bugSnap=res[8], searchSnap=res[9], privSnap=res[10];
       var PRIVE={}; if(privSnap && privSnap.exists()){ privSnap.forEach(function(c){ PRIVE[c.key]=c.val()||{}; }); }
