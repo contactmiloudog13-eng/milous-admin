@@ -7959,17 +7959,21 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
   };
 
   // ── TEMPS RÉEL : plus besoin d'actualiser + sons sur nouveauté ──
-  var _mpRTdeb=null, _mpLastAlerts=null, _mpLastResas=null;
+  var _mpRTdeb=null, _mpLastAlerts=null, _mpLastResas=null, _mpLastSignups=0;
   function mpRefreshSoon(){ clearTimeout(_mpRTdeb); _mpRTdeb=setTimeout(function(){ mpLoadData(); }, 500); }
   window.mpInitRealtime = function(){
     if(window._mpRT) return; window._mpRT=true;
     try{ var b=document.getElementById('mp-sound-btn'); if(b) b.textContent=(localStorage.getItem('mpSoundOff')==='1')?'🔕':'🔔'; }catch(e){}
     var db=window._mpDb;
-    // Nouvelle tentative de contact direct → bip d'alerte
+    // Le nœud « adminAlerts » porte deux natures d'événement : on compte les
+    // inscriptions à part, sinon une bonne nouvelle sonnerait comme un incident.
     db.ref('milouPets/adminAlerts').on('value', function(s){
-      var n=0; s.forEach(function(){ n++; });
-      if(_mpLastAlerts!==null && n>_mpLastAlerts){ window.mpPlaySound('alert'); }
-      _mpLastAlerts=n; mpRefreshSoon();
+      var n=0, nSignup=0;
+      s.forEach(function(c){ n++; if((c.val()||{}).type==='signup') nSignup++; });
+      if(_mpLastAlerts!==null && n>_mpLastAlerts){
+        window.mpPlaySound(nSignup>_mpLastSignups ? 'win' : 'alert');
+      }
+      _mpLastAlerts=n; _mpLastSignups=nSignup; mpRefreshSoon();
     });
     // Nouvelle réservation (arborescence gardien→résa) → son de victoire 🎉
     db.ref('milouPets/reservations').on('value', function(s){
