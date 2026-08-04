@@ -1824,13 +1824,13 @@ function renderResaTable(data) {
     <tr><td colspan="9" style="padding:0">
       <div class="detail-card" id="detail-${i}">
         <div class="detail-grid">
-          <div>${r['Code parrainage'] ? '<label>🎁 Code parrain : </label><span style="background:#FFF8E6;border:1.5px solid #F5C84A;color:#8B6020;padding:3px 10px;border-radius:20px;font-weight:700;font-size:.82rem;letter-spacing:.08em;">' + r['Code parrainage'] + '</span><span style="font-size:.75rem;color:#c07000;margin-left:6px;">→ -10€ à appliquer</span>' : '<label>Code parrainage : </label>—'}</div>
-          <div><label>Nombre de chiens : </label>${r['Nombre de chiens']||'—'}</div>
-          <div><label>Message : </label>${r['Message / infos supplémentaires']||'—'}</div>
-          <div><label>Email : </label><a href="mailto:${r['Email']||''}" style="color:var(--lav-d)">${r['Email']||'—'}</a></div>
+          <div>${r['Code parrainage'] ? '<label>🎁 Code parrain : </label><span style="background:#FFF8E6;border:1.5px solid #F5C84A;color:#8B6020;padding:3px 10px;border-radius:20px;font-weight:700;font-size:.82rem;letter-spacing:.08em;">' + _cEsc(r['Code parrainage']) + '</span><span style="font-size:.75rem;color:#c07000;margin-left:6px;">→ -10€ à appliquer</span>' : '<label>Code parrainage : </label>—'}</div>
+          <div><label>Nombre de chiens : </label>${_cEsc(r['Nombre de chiens']||'—')}</div>
+          <div><label>Message : </label>${_cEsc(r['Message / infos supplémentaires']||'—')}</div>
+          <div><label>Email : </label><a href="mailto:${_cEsc(r['Email']||'')}" style="color:var(--lav-d)">${_cEsc(r['Email']||'—')}</a></div>
         </div>
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-          <a href="tel:${r['Téléphone']}" style="background:var(--lav-d);color:#fff;padding:6px 14px;border-radius:20px;font-size:.75rem;font-weight:600;text-decoration:none;">📞 ${formatTel(r['Téléphone']||'')}</a>
+          <a href="tel:${_cEsc(r['Téléphone']||'')}" style="background:var(--lav-d);color:#fff;padding:6px 14px;border-radius:20px;font-size:.75rem;font-weight:600;text-decoration:none;">📞 ${formatTel(r['Téléphone']||'')}</a>
           <a href="https://wa.me/33${(r['Téléphone']||'').replace(/[^0-9]/g,'').replace(/^33/,'').replace(/^0/,'')}" target="_blank" style="background:#25D366;color:#fff;padding:6px 14px;border-radius:20px;font-size:.75rem;font-weight:600;text-decoration:none;">💬 WhatsApp</a>
           <a href="#" onclick="sendWaConfirm(event,${i})" style="background:#128C7E;color:#fff;padding:6px 14px;border-radius:20px;font-size:.75rem;font-weight:600;text-decoration:none;">✅ Confirmer</a>
           <a href="#" onclick="sendWaRefus(event,${i})" style="background:#E53935;color:#fff;padding:6px 14px;border-radius:20px;font-size:.75rem;font-weight:600;text-decoration:none;">❌ Refuser</a>
