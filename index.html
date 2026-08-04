@@ -1622,8 +1622,8 @@ function renderDashTable() {
     var k = getResaKey(r);
     var st = statuses[k] || 'new';
     html += '<tr>'
-      +'<td><b>'+(r['Prénom']||'')+' '+(r['Nom']||'')+'</b><br><span style="font-size:.72rem;color:var(--muted)">'+formatTel(r['Téléphone']||'')+'</span></td>'
-      +'<td>🐕 '+(r['Nom du chien']||'—')+'<br><span style="font-size:.72rem;color:var(--muted)">'+(r['Race']||'')+'</span></td>'
+      +'<td><b>'+_cEsc((r['Prénom']||'')+' '+(r['Nom']||''))+'</b><br><span style="font-size:.72rem;color:var(--muted)">'+_cEsc(formatTel(r['Téléphone']||''))+'</span></td>'
+      +'<td>🐕 '+_cEsc(r['Nom du chien']||'—')+'<br><span style="font-size:.72rem;color:var(--muted)">'+_cEsc(r['Race']||'')+'</span></td>'
       +'<td>'+serviceBadge(r['Service souhaité'])+'</td>'
       +'<td>'+fmtDate(r["Date d'arrivée"])+'</td>'
       +'<td>'+fmtDate(r['Date de départ'])+'</td>'
@@ -1802,11 +1802,11 @@ function renderResaTable(data) {
     const key = getResaKey(r);
     const status = statuses[key] || r._statut || 'new';
     html += `<tr style="cursor:pointer" onclick="toggleDetail(${i})">
-      <td><b>${r['Prénom']||''} ${r['Nom']||''}</b><br><span style="font-size:.72rem;color:var(--muted)">${formatTel(r['Téléphone']||'')}</span></td>
-      <td>🐕 ${r['Nom du chien']||'—'}<br><span style="font-size:.72rem;color:var(--muted)">${r['Race']||''} · ${r['Nombre de chiens']||''}</span></td>
+      <td><b>${_cEsc((r['Prénom']||'')+' '+(r['Nom']||''))}</b><br><span style="font-size:.72rem;color:var(--muted)">${_cEsc(formatTel(r['Téléphone']||''))}</span></td>
+      <td>🐕 ${_cEsc(r['Nom du chien']||'—')}<br><span style="font-size:.72rem;color:var(--muted)">${_cEsc(r['Race']||'')} · ${_cEsc(r['Nombre de chiens']||'')}</span></td>
       <td>${serviceBadge(r['Service souhaité'])}</td>
-      <td>${fmtDate(r["Date d'arrivée"])}<br><span style="font-size:.72rem;color:var(--muted)">${r["Heure d'arrivée"]||''}</span></td>
-      <td>${fmtDate(r['Date de départ'])}<br><span style="font-size:.72rem;color:var(--muted)">${r['Heure de départ']||''}</span></td>
+      <td>${fmtDate(r["Date d'arrivée"])}<br><span style="font-size:.72rem;color:var(--muted)">${_cEsc(r["Heure d'arrivée"]||'')}</span></td>
+      <td>${fmtDate(r['Date de départ'])}<br><span style="font-size:.72rem;color:var(--muted)">${_cEsc(r['Heure de départ']||'')}</span></td>
       <td>${statusBadge(status)}</td>
       <td onclick="event.stopPropagation()" style="display:flex;gap:6px;flex-wrap:wrap;padding:9px 10px;">
         ${status !== 'confirmed' ? `<button class="btn-accept" onclick="setStatusAndWa('${key}','confirmed',${i})" title="Valider">✅</button>` : ''}
@@ -2332,6 +2332,9 @@ window.renderTarifsEditor = renderTarifsEditor;
 
 /* ═══ CARNET MALIN — activation + gestion des nuits ═══ */
 function _cEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+// Exposé globalement : les blocs <script> suivants ne partagent pas la portée
+// de celui-ci, et ils affichent eux aussi des données saisies par des tiers.
+window._cEsc = _cEsc;
 function _cNom(uid){ var u=(window._firebaseUsers||{})[uid]||{}; var n=((u.prenom||'')+' '+(u.nom||'')).trim(); return n||u.email||uid.slice(0,6); }
 function _cTel(uid){ var u=(window._firebaseUsers||{})[uid]||{}; return u.tel||u.telephone||''; }
 window._carnets={}; window._carnetReqs={};
@@ -4335,12 +4338,12 @@ function renderClients(clients) {
       var extras = [ch.race, ch.age||'', ch.poids ? ch.poids+'kg' : '', ch.sexe||''].filter(Boolean).join(' · ');
       // --- header: photo + nom/race/sexe ---
       var photoHtml = ch.photoUrl
-        ? '<img src="'+ch.photoUrl+'" alt="'+ch.nom+'" class="zoomable" style="width:64px;height:64px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--lav-d);cursor:zoom-in;">'
+        ? '<img src="'+_cEsc(ch.photoUrl)+'" alt="'+_cEsc(ch.nom)+'" class="zoomable" style="width:64px;height:64px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--lav-d);cursor:zoom-in;">'
         : '<div style="width:64px;height:64px;border-radius:50%;background:var(--lav-d);display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;">🐕</div>';
       var headerHtml = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">'
         + photoHtml
         + '<div style="flex:1;min-width:0;">'
-        + '<div style="font-size:.9rem;font-weight:800;color:var(--lav-d);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+ch.nom+'</div>'
+        + '<div style="font-size:.9rem;font-weight:800;color:var(--lav-d);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+_cEsc(ch.nom)+'</div>'
         + (extras ? '<div style="font-size:.72rem;color:var(--muted);margin-top:2px;">'+extras+'</div>' : '')
         + '</div></div>';
       // --- info grid 2 cols ---
@@ -4548,9 +4551,9 @@ function renderDevisHistory() {
         return '<tr>'
           +'<td style="font-family:monospace;font-weight:700;color:var(--lav-d);font-size:.78rem;">'+num+'</td>'
           +'<td>'+d.date+'</td>'
-          +'<td><b>'+d.prenom+'</b>'+(d.tel?'<br><span style="font-size:.7rem;color:var(--muted)">'+d.tel+'</span>':'')+'</td>'
-          +'<td>🐕 '+d.chien+'</td>'
-          +'<td>'+d.service+'</td>'
+          +'<td><b>'+_cEsc(d.prenom)+'</b>'+(d.tel?'<br><span style="font-size:.7rem;color:var(--muted)">'+_cEsc(d.tel)+'</span>':'')+'</td>'
+          +'<td>🐕 '+_cEsc(d.chien)+'</td>'
+          +'<td>'+_cEsc(d.service)+'</td>'
           +'<td><input data-k="'+k+'" value="'+String(d.totalFacture||d.total||'').replace(/"/g,'&quot;')+'" onchange="setFactureTotal(this.dataset.k,this.value)" title="Prix qui apparaît sur la facture (modifiable)" style="width:82px;font-weight:700;color:var(--lav-d);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:.8rem;background:'+(d.totalFacture?'#FFF8E1':'#fff')+';"></td>'
           +'<td>'+statusBadge+'</td>'
           +'<td style="display:flex;gap:6px;"><button data-k="'+k+'" onclick="genFacture(this.dataset.k)" style="background:var(--lav-d);color:#fff;border:none;padding:5px 12px;border-radius:20px;font-size:.75rem;font-weight:600;cursor:pointer;">🖨️ Ouvrir</button><button data-k="'+k+'" onclick="deleteDevis(this.dataset.k)" style="background:var(--rouge);color:#fff;border:none;padding:5px 10px;border-radius:20px;font-size:.75rem;font-weight:600;cursor:pointer;">🗑️</button></td>'
@@ -5566,9 +5569,9 @@ _db.ref('avis').orderByChild('createdAt').on('value', function(snap) {
     var date  = a.createdAt ? new Date(a.createdAt).toLocaleDateString('fr-FR') : '—';
     var visible = a.visible !== false;
     html += '<tr>'
-      + '<td><b>' + (a.prenom||'') + ' ' + ((a.nom||'')[0]||'') + '.</b></td>'
+      + '<td><b>' + _cEsc((a.prenom||'') + ' ' + ((a.nom||'')[0]||'')) + '.</b></td>'
       + '<td style="color:var(--soleil);font-size:1rem;">' + stars + '</td>'
-      + '<td style="max-width:280px;font-size:.82rem;font-style:italic;">"' + (a.texte||'') + '"</td>'
+      + '<td style="max-width:280px;font-size:.82rem;font-style:italic;">"' + _cEsc(a.texte||'') + '"</td>'
       + '<td style="font-size:.75rem;color:var(--muted);">' + date + '</td>'
       + '<td>' + (visible ? '<span style="color:var(--vert);font-weight:700;">✓ Visible</span>' : '<span style="color:var(--muted);">Masqué</span>') + '</td>'
       + '<td style="display:flex;gap:6px;padding:9px 10px;">'
@@ -5984,12 +5987,12 @@ function loadGoogleAvisAdmin() {
       <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;background:${feat?'#FFF8E6':'var(--bg)'};border:1px solid ${feat?'#E8A84C':'var(--border)'};border-radius:12px;padding:14px 16px;">
         <div>
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap;">
-            <strong style="font-size:.88rem;color:var(--lav-d);">${a.nom}</strong>
+            <strong style="font-size:.88rem;color:var(--lav-d);">${_cEsc(a.nom)}</strong>
             <span style="color:#F5C84A;font-size:.85rem;">${'★'.repeat(a.note||5)}</span>
             <span style="font-size:.75rem;color:var(--muted);">${a.date||''}</span>
             ${feat?'<span style="background:#E8A84C;color:#fff;font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:10px;">⭐ Coup de cœur</span>':''}
           </div>
-          <p style="font-size:.82rem;color:var(--muted);line-height:1.6;margin:0;">${a.texte}</p>
+          <p style="font-size:.82rem;color:var(--muted);line-height:1.6;margin:0;">${_cEsc(a.texte)}</p>
         </div>
         <div style="display:flex;flex-direction:column;gap:8px;">
           <button onclick="toggleFeaturedAvis('${a.key}',${feat})" style="white-space:nowrap;cursor:pointer;border-radius:8px;padding:7px 12px;font-size:.78rem;font-weight:700;border:1.5px solid #E8A84C;background:${feat?'#E8A84C':'transparent'};color:${feat?'#fff':'#E8A84C'};">${feat?'★ Retirer':'☆ Coup de cœur'}</button>
