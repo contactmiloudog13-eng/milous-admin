@@ -6997,6 +6997,43 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
 <script>
 (function(){
   var MP_SVC = { pension:'🏠', garderie:'☀️', promenade:'🦮', visite:'🏡', chat:'🐱' };
+  // ── Ligne de planning d'une réservation Milou Compagnie ──────────────────
+  // ⚠️ Recopie volontaire de mpPlanningTxt() (milou-pets/common.js) : l'admin
+  // est une application SÉPARÉE et ne charge pas common.js. Si l'une des deux
+  // change, changer l'autre — sinon Lilou et le gardien lisent deux versions
+  // différentes de la même réservation.
+  // Ajoutée le 04/08 avec la garderie par jours de semaine : sans elle, l'admin
+  // affichait le service et le montant, mais ni les jours ni les horaires —
+  // donc l'essentiel pour organiser la journée.
+  function mpPlanningAdmin(r){
+    if(!r) return '';
+    var J=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+    if(r.service==='garderie'){
+      var b=[];
+      if(typeof r.jours==='string' && /^[0-6]{1,7}$/.test(r.jours)){
+        var t=r.jours.split('').sort().join('');
+        if(t==='0123456')      b.push('tous les jours');
+        else if(t==='12345')   b.push('du lundi au vendredi');
+        else if(t==='06')      b.push('le week-end');
+        else {
+          var l=t.split('').map(function(c){ return J[+c]+'s'; });
+          b.push('les '+(l.length===1?l[0]:l.slice(0,-1).join(', ')+' et '+l[l.length-1]));
+        }
+      }
+      if(r.quantite) b.push(r.quantite+' journée'+(r.quantite>1?'s':''));
+      if(r.heureArrivee && r.heureDepart) b.push(r.heureArrivee+' → '+r.heureDepart);
+      return b.join(' · ');
+    }
+    if(r.service==='pension'){
+      return (r.heureArrivee && r.heureDepart)
+        ? 'Arrivée '+r.heureArrivee+' · départ '+r.heureDepart : '';
+    }
+    if(!r.nbPassages) return '';
+    var p=r.nbPassages+' passage'+(r.nbPassages>1?'s':'')+' de '+(r.duree||30)+' min'
+        +' ('+(r.freq||1)+' par '+(r.freqUnite||'jour')+')';
+    if(Array.isArray(r.heures) && r.heures.length) p+=' · à '+r.heures.join(', ');
+    return p;
+  }
   function eur(n){ return (Math.round((n||0)*100)/100).toLocaleString('fr-FR') + '€'; }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
   function gate(){ return document.getElementById('mp-gate'); }
@@ -7469,6 +7506,7 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
             + '<div style="flex:1;min-width:180px;"><b>'+esc(r.clientPrenom||'Client')+' → '+esc(r.gardienNom||'')+'</b>'
             + '<br><span style="font-size:.82rem;color:var(--muted);">'+esc(r.serviceLabel||'')+' · '+eur(r.montantTotal||r.total||0)+com+' · '+esc(r.dateDebut||'')+contact+'</span>'
             + (r.animal?'<br><span style="font-size:.78rem;color:var(--muted);">🐾 '+esc(r.animal)+'</span>':'')
+            + (mpPlanningAdmin(r)?'<br><span style="font-size:.78rem;color:var(--muted);">🔁 '+esc(mpPlanningAdmin(r))+'</span>':'')
             + '</div>'
             + '<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;"><span style="font-size:.74rem;font-weight:700;padding:3px 10px;border-radius:20px;background:'+bg+';">'+lbl+'</span><div>'+escrow+statutTerm+'</div><div>'+refundBtn+'</div></div></div>';
         }).join('');
