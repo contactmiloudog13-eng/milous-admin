@@ -253,6 +253,8 @@ function ejsSendConfirme(r) {
     chien_nom   : chien.nom || '',
     service     : r.service || '',
     dates       : dates,
+    // Rappel du montant annonce au client lors de sa demande
+    prix        : (r.prix || '').replace(/<br>/g, ' · ').replace(/<[^>]+>/g, ''),
   }).catch(function(e){ console.warn('EmailJS erreur:', e); });
 }
 
@@ -413,7 +415,7 @@ function ejsSendRefuse(r, messageRefus) {
   <button class="nav-item" onclick="show('clients',this)"><span class="ico">👤</span> Fiches clients</button>
   <button class="nav-item" onclick="show('facturation',this)"><span class="ico">💶</span> Facturation</button>
   <button class="nav-item" onclick="show('tarifs',this);renderTarifsEditor();"><span class="ico">🏷️</span> Tarifs &amp; remises</button>
-  <button class="nav-item" onclick="show('carnet',this);loadCarnets();"><span class="ico">🎟️</span> Carnet Malin <span id="carnet-badge" style="display:none;background:#E8A84C;color:#1a0e00;border-radius:20px;padding:1px 7px;font-size:.68rem;font-weight:700;margin-left:4px;"></span></button>
+  <button class="nav-item" style="display:none;" onclick="show('carnet',this);loadCarnets();"><span class="ico">🎟️</span> Carnet Malin <span id="carnet-badge" style="display:none;background:#E8A84C;color:#1a0e00;border-radius:20px;padding:1px 7px;font-size:.68rem;font-weight:700;margin-left:4px;"></span></button>
   <button class="nav-item" onclick="show('avis-google',this);loadGoogleAvisAdmin();" id="nav-avis-google"><span class="ico">⭐</span> Avis Google <span id="avis-google-badge" style="display:none;background:#E8A84C;color:#fff;border-radius:20px;padding:1px 7px;font-size:.68rem;font-weight:700;margin-left:4px;"></span></button>
   <button class="nav-item" onclick="show('avis-request',this);loadAvisRequest();"><span class="ico">📣</span> Demander un avis</button>
   <button class="nav-item" onclick="show('mailing',this);loadMailing();"><span class="ico">✉️</span> Email groupé</button>
@@ -1326,6 +1328,18 @@ function fbResaToRow(key, r) {
     'Message / infos supplémentaires': r.message   || '',
     'Code parrainage'                : r.parrainage|| '',
     'Devis'                          : r.prix      || '',
+    // Champs enregistres par le site de reservation : sans ces lignes, le test
+    // prealable et la preuve d'acceptation des CGV restaient invisibles ici.
+    'Test 24 h avant la garde'       : (r.testPrealable && r.testPrealable.date)
+                                        ? (r.testPrealable.date + (r.testPrealable.heure ? ' à ' + r.testPrealable.heure : ''))
+                                        : '',
+    'CGV acceptées'                  : r.cgvAcceptees
+                                        ? ('Oui' + (r.cgvDate ? ' le ' + new Date(r.cgvDate).toLocaleString('fr-FR') : '')
+                                                 + (r.cgvVersion ? ' (' + r.cgvVersion + ')' : ''))
+                                        : 'Non',
+    'Animaux'                        : Array.isArray(r.animaux)
+                                        ? r.animaux.map(function(a){ return a.qte + ' ' + a.type; }).join(', ')
+                                        : '',
     '_statut'   : r.statut  || 'en-attente',
     '_userId'   : r.userId  || '',
     '_createdAt': createdAt,
