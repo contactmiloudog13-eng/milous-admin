@@ -7237,16 +7237,16 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
     acts += g.boost
       ? '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;" onclick="mpBoost(\''+g.id+'\',false,\''+esc(prenom)+'\')">🔝 Retirer la mise en avant</button>'
       : '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#EEEBFB;color:#4A3F8F;border:1.5px solid #b9aee8;" onclick="mpBoost(\''+g.id+'\',true,\''+esc(prenom)+'\')">🔝 Mettre en haut des résultats</button>';
-    // ── Relances en 1 clic (notification dans la cloche du gardien) ──
-    if(g.idStatus!=='valide' && g.idStatus!=='soumis')
-      acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#FFF3D6;color:#9a6a00;border:1.5px solid #e8c97a;" onclick="mpRelance(\''+g.id+'\',\'id\',\''+esc(prenom)+'\')">📩 Relancer : pièce d\'identité</button>';
-    if(!g.chargesEnabled)
-      acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#FFF3D6;color:#9a6a00;border:1.5px solid #e8c97a;" onclick="mpRelance(\''+g.id+'\',\'pay\',\''+esc(prenom)+'\')">📩 Relancer : activer paiements</button>';
-    // Pas de bouton de relance quand on n'a pas pu lire : relancer quelqu'un qui
-    // a déjà rempli son NIF, c'est le pire des messages à lui envoyer.
-    if(!fisc.nif && !nifIllisible)
-      acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#FFF3D6;color:#9a6a00;border:1.5px solid #e8c97a;" onclick="mpRelance(\''+g.id+'\',\'nif\',\''+esc(prenom)+'\')">📩 Relancer : numéro fiscal</button>';
-    acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;" onclick="mpRelance(\''+g.id+'\',\'libre\',\''+esc(prenom)+'\')">✉️ Message libre</button>';
+    // ── Relance groupée (18/10/2026) : UN bouton → panneau à cases, cochées
+    // d'office sur ce qui manque. Le serveur envoie UNE notification et au plus
+    // UN e-mail (48 h minimum entre deux e-mails au même gardien).
+    // NIF illisible : jamais coché d'office — relancer quelqu'un qui l'a déjà
+    // rempli, c'est le pire des messages à lui envoyer.
+    var relManque = { id: g.idStatus!=='valide' && g.idStatus!=='soumis', pay: !g.chargesEnabled, nif: !fisc.nif && !nifIllisible };
+    var relNb = (relManque.id?1:0) + (relManque.pay?1:0) + (relManque.nif?1:0);
+    window._mpRelEtat = window._mpRelEtat || {};
+    window._mpRelEtat[g.id] = { prenom: prenom, manque: relManque, nifIllisible: !!nifIllisible };
+    acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;'+(relNb?'background:#FFF3D6;color:#9a6a00;border:1.5px solid #e8c97a;':'')+'" onclick="mpOuvrirRelance(\''+g.id+'\')">'+(relNb?'📩 Relancer ('+relNb+' étape'+(relNb>1?'s':'')+')':'✉️ Envoyer un message')+'</button>';
     var gBlocked = u.bloque === true;
     acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;'+(gBlocked?'background:#1E9E6A;color:#fff;border:none;':'background:#fff3f3;color:#c0392b;border:1.5px solid #c0392b;')+'" onclick="mpSetBlock(\''+g.id+'\','+(!gBlocked)+',\''+esc(prenom)+'\')">'+(gBlocked?'✅ Débloquer':'🚫 Bloquer')+'</button>';
     acts += '<button class="btn-delete" style="padding:6px 12px;font-size:.78rem;margin-left:auto;" onclick="mpDeleteUser(\''+g.id+'\',\'gardien\',\''+esc(prenom)+'\')">🗑️ Supprimer définitivement</button>';
@@ -7339,8 +7339,11 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       (function(){ window._mpPrivErr=null;
         return window._mpDb.ref('milouPets/gardiensPrive').once('value')
           .catch(function(e){ window._mpPrivErr=(e&&e.message)||'accès refusé'; return null; });
-      })()
+      })(),
+      // Dernière relance de chaque gardien (écrit par mpAdminRelance).
+      window._mpDb.ref('milouPets/relances').once('value').catch(function(){return null;})
     ]).then(function(res){
+      window._mpRelances = (res[11] && res[11].val()) || {};
       var gardSnap=res[0], userSnap=res[1], petSnap=res[2], resaSnap=res[3], avisSnap=res[4], reportSnap=res[5], convoSnap=res[6], alertSnap=res[7], bugSnap=res[8], searchSnap=res[9], privSnap=res[10];
       var PRIVE={}; if(privSnap && privSnap.exists()){ privSnap.forEach(function(c){ PRIVE[c.key]=c.val()||{}; }); }
       if(!window._mpRT) mpInitRealtime();   // temps réel + sons (une seule fois)
@@ -7695,36 +7698,88 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
     });
   }
 
-  // ── Relance en 1 clic : envoie une notification (cloche) au gardien ──
-  window.mpRelance = function(uid, type, prenom){
-    var MSGS = {
-      id:  { title:'🪪 Pièce d\'identité manquante',
-             body:'Bonjour '+prenom+' ! Pour publier votre profil et recevoir des demandes, envoyez votre pièce d\'identité depuis votre espace gardien (2 minutes).',
-             // L'ancre #id est indispensable : sans elle, l'espace gardien ouvrait
-             // l'onglet portefeuille (RIB) au lieu de la carte pièce d'identité.
-             link:'espace-gardien.html#id' },
-      pay: { title:'💳 Activez vos paiements',
-             body:'Bonjour '+prenom+' ! Activez vos paiements (identité + RIB, 2 minutes) pour pouvoir accepter des gardes et recevoir votre argent.',
-             link:'activer-paiements.html' },
-      // L'ancre #wallet ouvre directement l'onglet Portefeuille, où se trouve la
-      // carte « Informations fiscales » — même logique que l'ancre #id ci-dessus.
-      nif: { title:'🧾 Votre numéro fiscal est manquant',
-             body:'Bonjour '+prenom+' ! Renseignez votre numéro fiscal (NIF) dans « Informations fiscales ». C\'est obligatoire (directive européenne DAC7) et sans lui vous ne pouvez pas retirer vos gains.',
-             link:'espace-gardien.html#wallet' }
-    };
-    var m = MSGS[type];
-    if(!m){
-      var txt = prompt('Message à envoyer à '+prenom+' (il le recevra dans sa cloche 🔔) :');
-      if(!txt || !txt.trim()) return;
-      m = { title:'💬 Message de l\'équipe Milou Compagnie', body:txt.trim().slice(0,300), link:'espace-gardien.html' };
-    }
-    window._mpDb.ref('milouPets/notifications/'+uid).push({
-      type:'admin', title:m.title, body:m.body, link:m.link,
-      at:firebase.database.ServerValue.TIMESTAMP, read:false
-    }).then(function(){
-      if(window.showToast) showToast('📩 Relance envoyée à '+prenom);
-    }).catch(function(e){ alert('Envoi impossible : '+e.message); });
+  // ── Relance groupée (18/10/2026) : panneau à cases → mpAdminRelance ──
+  // Le serveur recalcule ce qui manque, envoie UNE notification (cloche) et au
+  // plus UN e-mail qui regroupe les étapes cochées (48 h entre deux e-mails).
+  // Les liens des étapes (#id, activer-paiements, #wallet) sont fixés côté serveur.
+  var MP_REL_ETAPES = [
+    { k:'id',  label:'🪪 Pièce d\'identité' },
+    { k:'pay', label:'💳 Activer les paiements' },
+    { k:'nif', label:'🧾 Numéro fiscal (NIF)' }
+  ];
+  function mpRelFermer(){
+    var o = document.getElementById('mp-rel-modal'); if(o) o.remove();
+    document.removeEventListener('keydown', mpRelEchap);
+  }
+  function mpRelEchap(e){ if(e.key==='Escape') mpRelFermer(); }
+  function mpRelDepuis(t){
+    var h = Math.round((Date.now() - Number(t)) / 3600000);
+    return h < 1 ? 'il y a moins d\'une heure' : h < 48 ? 'il y a '+h+' h' : 'il y a '+Math.round(h/24)+' jours';
+  }
+  window.mpOuvrirRelance = function(uid){
+    var st = (window._mpRelEtat||{})[uid]; if(!st) return;
+    mpRelFermer();
+    var der = ((window._mpRelances||{})[uid]||{}).derniere;
+    var noms = { id:'pièce', pay:'paiements', nif:'NIF' };
+    var derTxt = der && der.at
+      ? 'Dernière relance : '+mpRelDepuis(der.at)+' ('+((der.etapes||[]).map(function(k){return noms[k]||k;}).join(', ')||'message')+(der.email?', avec e-mail':', cloche seule')+')'
+      : 'Jamais relancé depuis ce panneau.';
+    var cases = MP_REL_ETAPES.map(function(e){
+      var manque = st.manque[e.k];
+      var etat = manque ? '<span style="color:#9a6a00;">manquant</span>'
+        : (e.k==='nif' && st.nifIllisible) ? '<span style="color:#9a6a00;">lecture impossible : à vérifier</span>'
+        : '<span style="color:#1E9E6A;">✅ déjà fait</span>';
+      return '<label style="display:flex;align-items:center;gap:10px;min-height:44px;padding:4px 0;'+(manque?'cursor:pointer;':'opacity:.55;')+'">'
+        + '<input type="checkbox" class="mp-rel-etape" value="'+e.k+'" '+(manque?'checked':'disabled')+' style="width:20px;height:20px;">'
+        + '<span style="flex:1;font-weight:700;">'+e.label+'</span><span style="font-size:.78rem;">'+etat+'</span></label>';
+    }).join('');
+    var o = document.createElement('div');
+    o.id = 'mp-rel-modal';
+    o.setAttribute('role','dialog'); o.setAttribute('aria-modal','true'); o.setAttribute('aria-labelledby','mp-rel-titre');
+    o.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(30,20,10,.45);display:flex;align-items:center;justify-content:center;padding:16px;';
+    o.innerHTML = '<div style="background:#fff;border-radius:16px;max-width:440px;width:100%;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.25);font-size:.9rem;color:#3A322B;">'
+      + '<h3 id="mp-rel-titre" style="margin:0 0 12px;font-size:1.1rem;">📩 Relancer '+esc(st.prenom)+'</h3>'
+      + cases
+      + '<label for="mp-rel-msg" style="display:block;font-weight:700;margin:12px 0 4px;">Message perso <span style="font-weight:400;color:var(--muted);">(facultatif)</span></label>'
+      + '<textarea id="mp-rel-msg" maxlength="300" rows="3" style="width:100%;box-sizing:border-box;border:1.5px solid #ddd;border-radius:10px;padding:8px;font:inherit;"></textarea>'
+      + '<label style="display:flex;align-items:center;gap:10px;min-height:44px;cursor:pointer;"><input type="checkbox" id="mp-rel-email" checked style="width:20px;height:20px;"><span>Envoyer aussi par e-mail <span style="color:var(--muted);">(un seul, toutes les étapes cochées)</span></span></label>'
+      + '<div style="font-size:.78rem;color:var(--muted);margin:4px 0 14px;">'+esc(derTxt)+'</div>'
+      + '<div id="mp-rel-err" role="alert" style="color:#c0392b;font-size:.82rem;margin-bottom:8px;"></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
+      + '<button type="button" class="refresh-btn" id="mp-rel-annuler" style="min-height:44px;padding:8px 16px;">Annuler</button>'
+      + '<button type="button" class="refresh-btn" id="mp-rel-envoyer" style="min-height:44px;padding:8px 16px;background:#7C6FE0;color:#fff;border:none;">Envoyer</button>'
+      + '</div></div>';
+    document.body.appendChild(o);
+    o.addEventListener('click', function(e){ if(e.target===o) mpRelFermer(); });
+    document.addEventListener('keydown', mpRelEchap);
+    document.getElementById('mp-rel-annuler').onclick = mpRelFermer;
+    document.getElementById('mp-rel-envoyer').onclick = function(){ mpEnvoyerRelance(uid); };
+    var premier = o.querySelector('.mp-rel-etape:not([disabled])') || document.getElementById('mp-rel-msg');
+    if(premier) premier.focus();
   };
+  function mpEnvoyerRelance(uid){
+    var st = (window._mpRelEtat||{})[uid]; if(!st) return;
+    var etapes = Array.prototype.map.call(document.querySelectorAll('#mp-rel-modal .mp-rel-etape:checked'), function(c){ return c.value; });
+    var message = (document.getElementById('mp-rel-msg').value||'').trim();
+    var email = document.getElementById('mp-rel-email').checked;
+    var err = document.getElementById('mp-rel-err');
+    if(!etapes.length && !message){ err.textContent = 'Cochez au moins une étape ou écrivez un message.'; return; }
+    var btn = document.getElementById('mp-rel-envoyer');
+    btn.disabled = true; btn.setAttribute('aria-busy','true'); btn.textContent = 'Envoi…';
+    window._mpApp.functions('europe-west1').httpsCallable('mpAdminRelance')({ uid:uid, etapes:etapes, message:message, email:email })
+      .then(function(r){
+        var d = (r && r.data) || {};
+        window._mpRelances = window._mpRelances || {};
+        window._mpRelances[uid] = { derniere: { at: Date.now(), etapes: d.etapes||[], message: !!message, email: !!d.email } };
+        mpRelFermer();
+        var quoi = d.email ? 'cloche + e-mail' : 'cloche seule' + (d.raison && email ? ' (e-mail : '+d.raison+')' : '');
+        if(window.showToast) showToast('📩 Relance envoyée à '+st.prenom+' — '+quoi);
+      })
+      .catch(function(e){
+        btn.disabled = false; btn.removeAttribute('aria-busy'); btn.textContent = 'Envoyer';
+        err.textContent = 'Envoi impossible : '+((e && e.message) || 'erreur inconnue');
+      });
+  }
 
   // Bascule l'état "ID validée" d'un gardien
   window.mpToggleId = function(id){
