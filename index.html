@@ -7125,6 +7125,19 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
   function mpChip(txt,bg,col){ return '<span style="background:'+bg+';color:'+col+';font-size:.72rem;font-weight:700;border-radius:20px;padding:3px 10px;white-space:nowrap;">'+txt+'</span>'; }
   function mpInfo(icon,label,val){ return '<div style="font-size:.74rem;color:var(--muted);background:var(--bg);border-radius:8px;padding:5px 8px;"><span style="font-weight:700;color:var(--lav-d);">'+icon+' '+label+' :</span> '+esc(val)+'</div>'; }
 
+  // Date + heure d'inscription d'un gardien (21/10/2026). Source la plus sûre
+  // d'abord : partage/{uid}/inscritLe est posé par le serveur ; createdAt est
+  // écrit par le navigateur du gardien (horloge de son appareil).
+  function mpInscritTs(g, u){
+    var p = (window._mpPartage||{})[g.id] || {};
+    return Number(p.inscritLe) || Number(g.createdAt) || Number((u||{}).createdAt) || 0;
+  }
+  function mpDateHeure(ts){
+    if(!ts) return '';
+    var d = new Date(ts);
+    return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'})+' à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  }
+
   // ── Carte gardien détaillée ──
   function mpGardienCard(g, u, wallet, priv){
     u = u || {}; priv = priv || {};
@@ -7247,6 +7260,7 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
     window._mpRelEtat = window._mpRelEtat || {};
     window._mpRelEtat[g.id] = { prenom: prenom, manque: relManque, nifIllisible: !!nifIllisible };
     acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;'+(relNb?'background:#FFF3D6;color:#9a6a00;border:1.5px solid #e8c97a;':'')+'" onclick="mpOuvrirRelance(\''+g.id+'\')">'+(relNb?'📩 Relancer ('+relNb+' étape'+(relNb>1?'s':'')+')':'✉️ Envoyer un message')+'</button>';
+    acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;" onclick="mpCorrigerNom(\''+g.id+'\')">✏️ Corriger le nom</button>';
     var gBlocked = u.bloque === true;
     acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;'+(gBlocked?'background:#1E9E6A;color:#fff;border:none;':'background:#fff3f3;color:#c0392b;border:1.5px solid #c0392b;')+'" onclick="mpSetBlock(\''+g.id+'\','+(!gBlocked)+',\''+esc(prenom)+'\')">'+(gBlocked?'✅ Débloquer':'🚫 Bloquer')+'</button>';
     acts += '<button class="btn-delete" style="padding:6px 12px;font-size:.78rem;margin-left:auto;" onclick="mpDeleteUser(\''+g.id+'\',\'gardien\',\''+esc(prenom)+'\')">🗑️ Supprimer définitivement</button>';
@@ -7264,12 +7278,76 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
 
     var summary = '<summary class="client-acc-sum">'+photo
       + '<div style="flex:1;min-width:0;"><div style="font-size:.95rem;font-weight:800;color:var(--lav-d);">'+esc(prenom)+(nomFam?' <span style="color:var(--muted);font-weight:600;">'+esc(nomFam)+'</span>':'')+'</div>'
+      + (mpInscritTs(g,u) ? '<div style="font-size:.72rem;color:var(--muted);margin-top:2px;">🕒 Inscrit le '+esc(mpDateHeure(mpInscritTs(g,u)))+'</div>' : '')
       + '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;">'+chips+'</div></div>'
       + '<span class="client-acc-chev">▾</span></summary>';
 
     return '<details class="client-acc mp-gardien" data-verifie="'+(g.verifie?1:0)+'" data-premium="'+(g.premium?1:0)+'" data-boost="'+(g.boost?1:0)+'" data-nif="'+(fisc.nif?1:0)+'" data-search="'+esc(((prenom+' '+nomFam+' '+(g.ville||'')+' '+(u.email||'')).toLowerCase()))+'" style="margin:8px 0;">'
       + summary + '<div class="client-acc-body">' + infosHtml + fiscalHtml + walletHtml + offre + lgHtml + dispoHtml + bioHtml + acts + '</div></details>';
   }
+
+  // ── 📞 Gardiens à appeler (21/10/2026) : profil validé mais paiements jamais
+  // activés. C'est l'étape où 11 gardiens sur 24 s'arrêtaient : un appel débloque.
+  function mpListeAppels(gardiens, USERS){
+    var l = gardiens.filter(function(g){ var u=USERS[g.id]||{}; return g.verifie && !g.chargesEnabled && u.bloque!==true && g.bloque!==true; });
+    if(!l.length) return '';
+    var lignes = l.map(function(g){
+      var u=USERS[g.id]||{}, tel=g.tel||u.tel||'';
+      var nom=((u.prenom||g.nom||'')+' '+(u.nom||'')).trim()||'—';
+      var telHtml = tel ? '<a href="tel:'+esc(String(tel).replace(/[^0-9+]/g,''))+'" style="color:#1E5FBF;font-weight:700;">📞 '+esc(tel)+'</a>' : '<span style="color:var(--muted);">pas de téléphone</span>';
+      return '<div style="display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;padding:7px 0;border-top:1px solid #f0e4c8;font-size:.8rem;">'
+        + '<b style="min-width:140px;">'+esc(nom)+'</b>' + telHtml
+        + '<span style="color:var(--muted);font-size:.72rem;">'+esc(g.ville||'')+(mpInscritTs(g,u)?' · inscrit le '+esc(mpDateHeure(mpInscritTs(g,u))):'')+'</span></div>';
+    }).join('');
+    return '<details style="background:#FFF3D6;border:1.5px solid #e8c97a;border-radius:12px;padding:10px 14px;margin:6px 0 12px;">'
+      + '<summary style="cursor:pointer;font-weight:800;color:#9a6a00;">📞 À appeler : '+l.length+' gardien'+(l.length>1?'s':'')+' validé'+(l.length>1?'s':'')+' sans paiements activés</summary>'
+      + '<div style="font-size:.74rem;color:#7a5300;margin:6px 0 4px;">Trame : « Bonjour, c\'est Milan de Milou Compagnie. Votre profil est validé, il ne manque que l\'activation des paiements pour que les clients puissent vous réserver. Vous avez bloqué à quelle étape ? »</div>'
+      + lignes + '</details>';
+  }
+
+  // ── ✏️ Corriger le prénom / nom (21/10/2026) → mpAdminSetNom ──
+  // D'après la pièce d'identité. Sur la fiche publique du gardien, seul le
+  // prénom apparaît : le serveur n'y écrit jamais le nom de famille.
+  function mpNomFermer(){ var o=document.getElementById('mp-nom-modal'); if(o) o.remove(); document.removeEventListener('keydown', mpNomEchap); }
+  function mpNomEchap(e){ if(e.key==='Escape') mpNomFermer(); }
+  window.mpCorrigerNom = function(uid){
+    mpNomFermer();
+    var u=(window._mpUsers||{})[uid]||{};
+    var o=document.createElement('div');
+    o.id='mp-nom-modal';
+    o.setAttribute('role','dialog'); o.setAttribute('aria-modal','true'); o.setAttribute('aria-labelledby','mp-nom-titre');
+    o.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(30,20,10,.45);display:flex;align-items:center;justify-content:center;padding:16px;';
+    var champ='width:100%;box-sizing:border-box;border:1.5px solid #ddd;border-radius:10px;padding:10px;font:inherit;min-height:44px;';
+    o.innerHTML='<div style="background:#fff;border-radius:16px;max-width:400px;width:100%;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.25);font-size:.9rem;color:#3A322B;">'
+      + '<h3 id="mp-nom-titre" style="margin:0 0 6px;font-size:1.1rem;">✏️ Corriger le nom</h3>'
+      + '<p style="margin:0 0 12px;font-size:.8rem;color:var(--muted);">Recopiez exactement la pièce d\'identité (accents, noms composés).</p>'
+      + '<label for="mp-nom-p" style="display:block;font-weight:700;margin-bottom:4px;">Prénom</label>'
+      + '<input id="mp-nom-p" type="text" maxlength="60" autocomplete="off" style="'+champ+'">'
+      + '<label for="mp-nom-n" style="display:block;font-weight:700;margin:10px 0 4px;">Nom de famille</label>'
+      + '<input id="mp-nom-n" type="text" maxlength="60" autocomplete="off" style="'+champ+'">'
+      + '<div id="mp-nom-err" role="alert" style="color:#c0392b;font-size:.82rem;min-height:1.2em;margin:8px 0;"></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
+      + '<button type="button" class="refresh-btn" id="mp-nom-annuler" style="min-height:44px;padding:8px 16px;">Annuler</button>'
+      + '<button type="button" class="refresh-btn" id="mp-nom-ok" style="min-height:44px;padding:8px 16px;background:#7C6FE0;color:#fff;border:none;">Enregistrer</button>'
+      + '</div></div>';
+    document.body.appendChild(o);
+    document.getElementById('mp-nom-p').value = u.prenom||'';
+    document.getElementById('mp-nom-n').value = u.nom||'';
+    o.addEventListener('click', function(e){ if(e.target===o) mpNomFermer(); });
+    document.addEventListener('keydown', mpNomEchap);
+    document.getElementById('mp-nom-annuler').onclick = mpNomFermer;
+    document.getElementById('mp-nom-ok').onclick = function(){
+      var p=document.getElementById('mp-nom-p').value.trim(), n=document.getElementById('mp-nom-n').value.trim();
+      var err=document.getElementById('mp-nom-err'), btn=this;
+      if(!p || !n){ err.textContent='Le prénom et le nom sont obligatoires.'; return; }
+      if(p.toLowerCase()===n.toLowerCase()){ err.textContent='Le nom de famille doit être différent du prénom.'; return; }
+      btn.disabled=true; btn.textContent='Enregistrement…';
+      window._mpApp.functions('europe-west1').httpsCallable('mpAdminSetNom')({ uid:uid, prenom:p, nom:n })
+        .then(function(r){ mpNomFermer(); if(window.showToast) showToast('✏️ Nom corrigé : '+r.data.prenom+' '+r.data.nom); mpLoadData(); })
+        .catch(function(e){ btn.disabled=false; btn.textContent='Enregistrer'; err.textContent='Impossible : '+((e&&e.message)||'erreur inconnue'); });
+    };
+    document.getElementById('mp-nom-n').focus();
+  };
 
   // ── Carte client détaillée (avec ses animaux) ──
   function mpClientCard(uid, u, pets){
@@ -7307,6 +7385,7 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
 
     var cBlocked = u.bloque === true;
     var clActs = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">'
+      + '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;" onclick="mpCorrigerNom(\''+uid+'\')">✏️ Corriger le nom</button>'
       + '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;'+(cBlocked?'background:#1E9E6A;color:#fff;border:none;':'background:#fff3f3;color:#c0392b;border:1.5px solid #c0392b;')+'" onclick="mpSetBlock(\''+uid+'\','+(!cBlocked)+',\''+esc(nom)+'\')">'+(cBlocked?'✅ Débloquer':'🚫 Bloquer')+'</button>'
       + '<button class="btn-delete" style="padding:6px 12px;font-size:.78rem;margin-left:auto;" onclick="mpDeleteUser(\''+uid+'\',\'client\',\''+esc(nom)+'\')">🗑️ Supprimer définitivement</button>'
       + '</div>';
@@ -7341,9 +7420,12 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
           .catch(function(e){ window._mpPrivErr=(e&&e.message)||'accès refusé'; return null; });
       })(),
       // Dernière relance de chaque gardien (écrit par mpAdminRelance).
-      window._mpDb.ref('milouPets/relances').once('value').catch(function(){return null;})
+      window._mpDb.ref('milouPets/relances').once('value').catch(function(){return null;}),
+      // Programme Partage : date d'inscription posée par le SERVEUR (inscritLe).
+      window._mpDb.ref('milouPets/partage').once('value').catch(function(){return null;})
     ]).then(function(res){
       window._mpRelances = (res[11] && res[11].val()) || {};
+      window._mpPartage = (res[12] && res[12].val()) || {};
       var gardSnap=res[0], userSnap=res[1], petSnap=res[2], resaSnap=res[3], avisSnap=res[4], reportSnap=res[5], convoSnap=res[6], alertSnap=res[7], bugSnap=res[8], searchSnap=res[9], privSnap=res[10];
       var PRIVE={}; if(privSnap && privSnap.exists()){ privSnap.forEach(function(c){ PRIVE[c.key]=c.val()||{}; }); }
       if(!window._mpRT) mpInitRealtime();   // temps réel + sons (une seule fois)
@@ -7385,8 +7467,9 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       document.getElementById('mp-gardiens-title').textContent='🛡️ Gardiens ('+gardiens.length+')';
       if(!gardiens.length){ gbox.innerHTML='<div style="color:var(--muted);padding:14px;text-align:center;">Aucun gardien inscrit pour l\'instant.</div>'; }
       else {
-        gardiens.sort(function(a,b){ return (a.verifie?1:0)-(b.verifie?1:0); });
-        gbox.innerHTML=gardiens.map(function(g){ return mpGardienCard(g, USERS[g.id], WALLETS[g.id], PRIVE[g.id]); }).join('');
+        // À valider d'abord, puis les plus récents en premier (21/10/2026).
+        gardiens.sort(function(a,b){ return ((a.verifie?1:0)-(b.verifie?1:0)) || (mpInscritTs(b,USERS[b.id]) - mpInscritTs(a,USERS[a.id])); });
+        gbox.innerHTML=mpListeAppels(gardiens, USERS) + gardiens.map(function(g){ return mpGardienCard(g, USERS[g.id], WALLETS[g.id], PRIVE[g.id]); }).join('');
       }
 
       // ── Rendu clients (users non-gardiens) ──
