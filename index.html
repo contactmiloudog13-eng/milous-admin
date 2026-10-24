@@ -337,6 +337,21 @@ function ejsSendRefuse(r, messageRefus) {
   const _mpDb = _mpApp.database();
   _mpAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
   window._mpAuth = _mpAuth; window._mpDb = _mpDb; window._mpApp = _mpApp;
+  // 24/10/2026 : la session enregistrée est relue de façon ASYNCHRONE. Lire
+  // currentUser au démarrage donnait null, et l'admin affichait « Se connecter »
+  // à chaque ouverture alors que la session était bien là. On attend le premier
+  // avis de Firebase, puis on réaffiche l'espace si la session change.
+  window._mpAuthPret = false;
+  _mpAuth.onAuthStateChanged(() => {
+    window._mpAuthPret = true;
+    const gate = document.getElementById('mp-gate');
+    // Rappel seulement si l'espace Milou a été demandé entre-temps, ou si
+    // l'écran de connexion est affiché (retour d'une connexion par redirection).
+    if ((window._mpEnAttente || (gate && gate.style.display === 'block')) && typeof window.loadMilouPets === 'function') {
+      window._mpEnAttente = false;
+      window.loadMilouPets();
+    }
+  });
 
 
 </script>
@@ -436,6 +451,7 @@ function ejsSendRefuse(r, messageRefus) {
   <button class="nav-item" onclick="show('milou-pets',this);loadMilouPets();mpShowSection('convos')"><span class="ico">💬</span> Conversations</button>
   <button class="nav-item" onclick="show('milou-pets',this);loadMilouPets();mpShowSection('alerts')"><span class="ico">🚨</span> Alertes <span id="mp-alerts-badge" style="display:none;background:#E53935;color:#fff;border-radius:20px;padding:1px 7px;font-size:.68rem;font-weight:700;margin-left:4px;"></span></button>
   <button class="nav-item" onclick="show('milou-pets',this);loadMilouPets();mpShowSection('avis')"><span class="ico">⭐</span> Avis & signalements</button>
+  <button class="nav-item" onclick="show('milou-pets',this);loadMilouPets();mpShowSection('support')"><span class="ico">📨</span> Support <span id="mp-support-badge" style="display:none;background:#E53935;color:#fff;border-radius:20px;padding:1px 7px;font-size:.68rem;font-weight:700;margin-left:4px;"></span></button>
   <button class="nav-item" onclick="show('milou-pets',this);loadMilouPets();mpShowSection('bugs')"><span class="ico">🐞</span> Bugs <span id="mp-bugs-badge" style="display:none;background:#FB8C00;color:#fff;border-radius:20px;padding:1px 7px;font-size:.68rem;font-weight:700;margin-left:4px;"></span></button>
   </div><!-- /nav-grp-pets -->
 </aside>
@@ -1282,6 +1298,10 @@ function ejsSendRefuse(r, messageRefus) {
         <div id="mp-alerts"><div class="loading">Chargement…</div></div>
       </div>
 
+      <div class="panel" id="mp-sec-support" style="margin-bottom:18px;">
+        <div class="panel-title" id="mp-support-title">📨 Messages au support</div>
+        <div id="mp-support"><div class="loading">Chargement…</div></div>
+      </div>
       <div class="panel" id="mp-sec-bugs">
         <div class="panel-title">🐞 Bugs & problèmes signalés</div>
         <div id="mp-bugs"><div class="loading">Chargement…</div></div>
@@ -7077,6 +7097,8 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
   window.mpSignOut = function(){ window._mpAuth.signOut().then(loadMilouPets); };
 
   window.loadMilouPets = function(){
+    // Session pas encore relue : onAuthStateChanged rappellera cette fonction.
+    if(!window._mpAuthPret){ window._mpEnAttente = true; status('Connexion…'); return; }
     status('Vérification…');
     var user = window._mpAuth.currentUser;
     if(!user){
@@ -7294,6 +7316,43 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
 
   // ── 📞 Gardiens à appeler (21/10/2026) : profil validé mais paiements jamais
   // activés. C'est l'étape où 11 gardiens sur 24 s'arrêtaient : un appel débloque.
+  // ── Section « 📨 Support » (24/10/2026) : messages du formulaire « Nous contacter ».
+  // Chaque message arrive aussi par e-mail à contact@ (fonction onSupportTicket).
+  function mpRenderSupport(){
+    var box = document.getElementById('mp-support'); if(!box) return;
+    var T = window._mpSupport || {};
+    var L = Object.keys(T).map(function(k){ var t = T[k]||{}; t._k = k; return t; })
+      .sort(function(a,b){ return ((a.statut==='traite')-(b.statut==='traite')) || ((b.at||0)-(a.at||0)); });
+    var ouverts = L.filter(function(t){ return t.statut!=='traite'; }).length;
+    var badge = document.getElementById('mp-support-badge');
+    if(badge){ badge.textContent = ouverts; badge.style.display = ouverts ? '' : 'none'; }
+    var titre = document.getElementById('mp-support-title');
+    if(titre) titre.textContent = '📨 Messages au support ('+ouverts+' à traiter)';
+    if(!L.length){ box.innerHTML = '<div style="color:var(--muted);padding:14px;text-align:center;">Aucun message pour l\'instant.</div>'; return; }
+    box.innerHTML = L.map(function(t){
+      var fait = t.statut==='traite';
+      var mail = String(t.email||'');
+      var sujet = 'Re: '+(t.sujet||'Votre message à Milou Compagnie');
+      return '<div style="padding:10px 0;border-top:1px solid var(--border);'+(fait?'opacity:.55;':'')+'">'
+        + '<div style="display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;font-size:.8rem;margin-bottom:6px;">'
+        +   '<b>'+(fait?'✅':'🟠')+' '+esc(t.sujet||'Demande de support')+'</b>'
+        +   '<a href="mailto:'+encodeURIComponent(mail).replace(/%40/g,'@')+'?subject='+encodeURIComponent(sujet)+'" style="color:#1E5FBF;font-weight:700;">✉️ '+esc(mail)+'</a>'
+        +   '<span style="color:var(--muted);">'+(t.at?mpDateHeure(t.at):'')+' · '+esc(t.page||'')+(t.uid?' · compte '+esc(t.uid):' · sans compte')+'</span>'
+        + '</div>'
+        + '<div style="white-space:pre-wrap;font-size:.85rem;background:var(--bg);border-radius:8px;padding:8px 10px;margin-bottom:6px;">'+esc(t.message||'')+'</div>'
+        + '<button class="btn" style="padding:4px 10px;font-size:.74rem;" onclick="mpSupportStatut(\''+esc(t._k)+'\',\''+(fait?'ouvert':'traite')+'\')">'+(fait?'↩️ Rouvrir':'✅ Marquer traité')+'</button>'
+        + '</div>';
+    }).join('');
+  }
+  window.mpSupportStatut = function(id, statut){
+    if(!/^[A-Za-z0-9_-]{1,40}$/.test(id) || (statut!=='traite' && statut!=='ouvert')) return;
+    window._mpDb.ref('milouPets/supportTickets/'+id+'/statut').set(statut).then(function(){
+      if(window._mpSupport && window._mpSupport[id]) window._mpSupport[id].statut = statut;
+      mpRenderSupport();
+      if(window.showToast) showToast(statut==='traite' ? '✅ Message marqué traité' : '↩️ Message rouvert');
+    }).catch(function(e){ alert('Erreur : '+((e&&e.message)||'inconnue')); });
+  };
+
   // ── Onglet « 📣 Partage » (24/10/2026) : qui partage son lien, qui ne l'a jamais fait ──
   // 🔴 kit jamais activé · 🟠 lien activé mais jamais ouvert · 🟢 lien ouvert par quelqu'un.
   // La logique pure est testée sous Node (marqueurs ci-dessous).
@@ -7516,8 +7575,11 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       // Programme Partage : date d'inscription posée par le SERVEUR (inscritLe).
       window._mpDb.ref('milouPets/partage').once('value').catch(function(){return null;}),
       // Suivi du kit (24/10/2026) : visites du lien, clics du kit, bonus. Écrit par le serveur.
-      window._mpDb.ref('milouPets/partageStats').once('value').catch(function(){return null;})
+      window._mpDb.ref('milouPets/partageStats').once('value').catch(function(){return null;}),
+      // Formulaire « Nous contacter » (24/10/2026) : jusqu'ici affiché nulle part.
+      window._mpDb.ref('milouPets/supportTickets').once('value').catch(function(){return null;})
     ]).then(function(res){
+      window._mpSupport = (res[14] && res[14].val()) || {};
       window._mpRelances = (res[11] && res[11].val()) || {};
       window._mpPartage = (res[12] && res[12].val()) || {};
       window._mpPartageStats = (res[13] && res[13].val()) || {};
@@ -7567,6 +7629,7 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
         gbox.innerHTML=mpListeAppels(gardiens, USERS) + gardiens.map(function(g){ return mpGardienCard(g, USERS[g.id], WALLETS[g.id], PRIVE[g.id]); }).join('');
       }
       mpRenderPartage(gardiens, USERS);
+      mpRenderSupport();
 
       // ── Rendu clients (users non-gardiens) ──
       var gardIds={}; gardiens.forEach(function(g){ gardIds[g.id]=true; });
@@ -7997,7 +8060,7 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
   };
 
   window.mpShowSection = function(name){
-    ["pilotage","gardiens","partage","clients","resas","wallets","convos","signups","alerts","avis","bugs"].forEach(function(sname){
+    ["pilotage","gardiens","partage","clients","resas","wallets","convos","signups","alerts","avis","support","bugs"].forEach(function(sname){
       var el=document.getElementById("mp-sec-"+sname);
       if(el) el.style.display=(name==="all"||name===sname)?"":"none";
     });
