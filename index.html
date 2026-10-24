@@ -7289,6 +7289,16 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
     window._mpRelEtat[g.id] = { prenom: prenom, manque: relManque, nifIllisible: !!nifIllisible };
     acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;'+(relNb?'background:#FFF3D6;color:#9a6a00;border:1.5px solid #e8c97a;':'')+'" onclick="mpOuvrirRelance(\''+g.id+'\')">'+(relNb?'📩 Relancer ('+relNb+' étape'+(relNb>1?'s':'')+')':'✉️ Envoyer un message')+'</button>';
     acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;" onclick="mpCorrigerNom(\''+g.id+'\')">✏️ Corriger le nom</button>';
+    // ── Photo de profil (24/10/2026) : on doit voir le visage du gardien ──
+    if(g.photoAVerifier===true && g.photoUrl){
+      acts += '<span style="font-size:.74rem;font-weight:700;color:#9a6a00;background:#FFF3D6;border-radius:20px;padding:4px 10px;">⚠️ Photo à vérifier (aucun visage détecté)</span>';
+      acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#E6F4EA;color:#1E7A4F;border:1.5px solid #9fd3b5;" onclick="mpPhotoOk(\''+g.id+'\')">✅ Photo OK</button>';
+    }
+    if(g.photoUrl){
+      acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;background:#fff3f3;color:#c0392b;border:1.5px solid #e6a5a0;" onclick="mpPhotoRefuser(\''+g.id+'\')">📷 Photo à changer</button>';
+    } else if(g.photoRefusee===true){
+      acts += '<span style="font-size:.74rem;font-weight:700;color:#c0392b;">📷 Photo retirée — en attente d\'une photo du visage</span>';
+    }
     var gBlocked = u.bloque === true;
     acts += '<button class="refresh-btn" style="padding:6px 12px;font-size:.78rem;'+(gBlocked?'background:#1E9E6A;color:#fff;border:none;':'background:#fff3f3;color:#c0392b;border:1.5px solid #c0392b;')+'" onclick="mpSetBlock(\''+g.id+'\','+(!gBlocked)+',\''+esc(prenom)+'\')">'+(gBlocked?'✅ Débloquer':'🚫 Bloquer')+'</button>';
     acts += '<button class="btn-delete" style="padding:6px 12px;font-size:.78rem;margin-left:auto;" onclick="mpDeleteUser(\''+g.id+'\',\'gardien\',\''+esc(prenom)+'\')">🗑️ Supprimer définitivement</button>';
@@ -7316,6 +7326,24 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
 
   // ── 📞 Gardiens à appeler (21/10/2026) : profil validé mais paiements jamais
   // activés. C'est l'étape où 11 gardiens sur 24 s'arrêtaient : un appel débloque.
+  // ── Photo de profil (24/10/2026) : refuser (photo d'animal, logo…) ou valider ──
+  window.mpPhotoRefuser = function(uid){
+    var g = ((window._mpAll&&window._mpAll.gardiens)||[]).filter(function(x){ return x.id===uid; })[0] || {};
+    var prenom = String(g.nom||'').trim().split(/\s+/)[0];
+    if(!confirm('Retirer la photo de profil de '+(prenom||'ce gardien')+' ?\n\nSon initiale s\'affichera à la place, et il reçoit une notification + un e-mail lui demandant une photo de son visage. La photo n\'est pas supprimée (gardée en privé).')) return;
+    window._mpApp.functions('europe-west1').httpsCallable('mpAdminPhotoRefusee')({ uid:uid }).then(function(r){
+      var d = (r && r.data) || {};
+      if(window.showToast) showToast('📷 Photo retirée — '+(d.email?'cloche + e-mail envoyés':'cloche seule (pas d\'e-mail)'));
+      loadMilouPets();
+    }).catch(function(e){ alert('Impossible : '+((e&&e.message)||'erreur inconnue')); });
+  };
+  window.mpPhotoOk = function(uid){
+    window._mpDb.ref('milouPets/gardiens/'+uid+'/photoAVerifier').remove().then(function(){
+      if(window.showToast) showToast('✅ Photo validée');
+      loadMilouPets();
+    }).catch(function(e){ alert('Erreur : '+((e&&e.message)||'inconnue')); });
+  };
+
   // ── Section « 📨 Support » (24/10/2026) : messages du formulaire « Nous contacter ».
   // Chaque message arrive aussi par e-mail à contact@ (fonction onSupportTicket).
   function mpRenderSupport(){
