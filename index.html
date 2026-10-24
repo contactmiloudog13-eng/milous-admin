@@ -429,6 +429,7 @@ function ejsSendRefuse(r, messageRefus) {
   <button class="nav-item" onclick="show('milou-pets',this);loadMilouPets();mpShowSection('all');" id="nav-milou-pets"><span class="ico">📊</span> Tableau Pets <span id="mp-nav-badge" style="display:none;background:#7C6FE0;color:#fff;border-radius:20px;padding:1px 7px;font-size:.68rem;font-weight:700;margin-left:4px;"></span></button>
   <button class="nav-item" onclick="show('milou-pets',this);loadMilouPets();mpShowSection('pilotage')"><span class="ico">💰</span> Finances & pilotage</button>
   <button class="nav-item" onclick="show('milou-pets',this);loadMilouPets();mpShowSection('gardiens')"><span class="ico">🛡️</span> Gardiens</button>
+  <button class="nav-item" onclick="show('milou-pets',this);loadMilouPets();mpShowSection('partage')"><span class="ico">📣</span> Partage</button>
   <button class="nav-item" onclick="show('milou-pets',this);loadMilouPets();mpShowSection('clients')"><span class="ico">👤</span> Clients</button>
   <button class="nav-item" onclick="show('milou-pets',this);loadMilouPets();mpShowSection('resas')"><span class="ico">📋</span> Réservations</button>
   <button class="nav-item" onclick="show('milou-pets',this);loadMilouPets();mpShowSection('wallets')"><span class="ico">💰</span> Portefeuilles</button>
@@ -1221,6 +1222,11 @@ function ejsSendRefuse(r, messageRefus) {
           </select>
         </div>
         <div id="mp-gardiens"><div class="loading">Chargement…</div></div>
+      </div>
+
+      <div class="panel" id="mp-sec-partage" style="margin-bottom:18px;">
+        <div class="panel-title">📣 Programme Partage : qui partage ?</div>
+        <div id="mp-partage"><div class="loading">Chargement…</div></div>
       </div>
 
       <div class="panel" id="mp-sec-clients" style="margin-bottom:18px;">
@@ -7288,6 +7294,92 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
 
   // ── 📞 Gardiens à appeler (21/10/2026) : profil validé mais paiements jamais
   // activés. C'est l'étape où 11 gardiens sur 24 s'arrêtaient : un appel débloque.
+  // ── Onglet « 📣 Partage » (24/10/2026) : qui partage son lien, qui ne l'a jamais fait ──
+  // 🔴 kit jamais activé · 🟠 lien activé mais jamais ouvert · 🟢 lien ouvert par quelqu'un.
+  // La logique pure est testée sous Node (marqueurs ci-dessous).
+  // <mp-partage-pur>
+  function mpPartageStatut(p, st){
+    if(!p || !/^[a-hjkmnp-z2-9]{6}$/.test(String(p.code||''))) return 'rouge';
+    return Number(st && st.visites) > 0 ? 'vert' : 'orange';
+  }
+  function mpPartageLignes(gardiens, USERS, PARTAGE, STATS){
+    var ordre = { rouge:0, orange:1, vert:2 };
+    return gardiens.filter(function(g){ return g.bloque!==true && (USERS[g.id]||{}).bloque!==true; }).map(function(g){
+      var p = PARTAGE[g.id]||{}, st = STATS[g.id]||{}, act = st.actions||{}, clics = 0;
+      Object.keys(act).forEach(function(k){ clics += Number(act[k])||0; });
+      return { id:g.id, g:g, statut:mpPartageStatut(p, st), adhereLe:p.adhereLe||0, visites:Number(st.visites)||0,
+        derniereVisite:st.derniereVisite||0, reservations:Number(st.reservations)||0, clics:clics,
+        derniereAction:st.derniereAction||null, boost:Number(g.partageBoostJusqu)||0 };
+    }).sort(function(a,b){ return (ordre[a.statut]-ordre[b.statut]) || (b.visites-a.visites); });
+  }
+  // </mp-partage-pur>
+  var MP_PARTAGE_ACTIONS = { 'copier-lien':'lien copié', 'copier-texte':'texte copié', 'partager':'bouton Partager', 'visuel':'visuel créé',
+    'whatsapp':'WhatsApp', 'facebook':'Facebook', 'instagram':'Instagram', 'copier-parrain':'lien parrainage copié' };
+  function mpRenderPartage(gardiens, USERS){
+    var box = document.getElementById('mp-partage'); if(!box) return;
+    var L = mpPartageLignes(gardiens, USERS, window._mpPartage||{}, window._mpPartageStats||{});
+    var n = { rouge:0, orange:0, vert:0 }; L.forEach(function(x){ n[x.statut]++; });
+    var visites = L.reduce(function(a,x){ return a+x.visites; }, 0), resas = L.reduce(function(a,x){ return a+x.reservations; }, 0);
+    var pastille = { rouge:'🔴', orange:'🟠', vert:'🟢' };
+    var libelle = { rouge:'Kit jamais activé', orange:'Lien jamais ouvert', vert:'Lien ouvert' };
+    var REL = window._mpRelances||{};
+    var carte = function(val, lib, coul){ return '<div class="panel" style="text-align:center;"><div style="font-size:1.4rem;font-weight:800;color:'+coul+';">'+val+'</div><div style="font-size:.74rem;color:var(--muted);">'+lib+'</div></div>'; };
+    var h = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px;">'
+      + carte(n.rouge, '🔴 Jamais activé', '#C62828') + carte(n.orange, '🟠 Lien jamais ouvert', '#E65100')
+      + carte(n.vert, '🟢 Ont partagé', '#1E9E6A') + carte(visites, 'Visites des liens', '#4A3F8F') + carte(resas, 'Réservations via lien', '#4A3F8F')
+      + '</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;">'
+      + '<button class="btn" id="mp-partage-relancer" onclick="mpRelancerPartageTous()" style="min-height:40px;"'+(n.rouge?'':' disabled')+'>📩 Relancer les 🔴 ('+n.rouge+')</button>'
+      + '<span style="font-size:.75rem;color:var(--muted);">Une notification + un e-mail par gardien, jamais deux e-mails en 48 h. Rien ne part sans ce clic.</span></div>';
+    if(!L.length){ box.innerHTML = h + '<div style="color:var(--muted);padding:14px;text-align:center;">Aucun gardien.</div>'; return; }
+    h += L.map(function(x){
+      var u = USERS[x.id]||{}, nom = ((u.prenom||x.g.nom||'')+' '+(u.nom||'')).trim()||'—';
+      var act = x.derniereAction ? (MP_PARTAGE_ACTIONS[x.derniereAction.type]||esc(x.derniereAction.type))+' · '+mpDateHeure(x.derniereAction.at) : 'aucun clic';
+      var rel = REL[x.id] && REL[x.id].partage ? '<span style="color:var(--muted);">relancé le '+mpDateHeure(REL[x.id].partage)+'</span>' : '';
+      var bouton = x.statut==='vert' ? '' : '<button class="btn" style="padding:4px 10px;font-size:.74rem;" onclick="mpRelancerPartage(\''+esc(x.id)+'\')">📩 Relancer</button>';
+      return '<div style="display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;padding:8px 0;border-top:1px solid var(--border);font-size:.8rem;">'
+        + '<span title="'+libelle[x.statut]+'">'+pastille[x.statut]+'</span>'
+        + '<b style="min-width:140px;">'+esc(nom)+'</b>'
+        + '<span style="color:var(--muted);min-width:90px;">'+esc(x.g.ville||'')+'</span>'
+        + '<span>'+(x.adhereLe?'activé le '+mpDateHeure(x.adhereLe):'<i>pas de lien</i>')+'</span>'
+        + '<span>👆 '+x.clics+' clic'+(x.clics>1?'s':'')+' — dernier : '+act+'</span>'
+        + '<span>👀 '+x.visites+' visite'+(x.visites>1?'s':'')+(x.derniereVisite?' (dernière '+mpDateHeure(x.derniereVisite)+')':'')+'</span>'
+        + (x.reservations?'<span>📅 '+x.reservations+' résa</span>':'')
+        + (x.boost>Date.now()?'<span style="color:#1E9E6A;font-weight:700;">🚀 bonus jusqu\'au '+new Date(x.boost).toLocaleDateString('fr-FR')+'</span>':'')
+        + rel + bouton + '</div>';
+    }).join('');
+    box.innerHTML = h;
+  }
+  function mpAppelRelancePartage(uid){
+    return window._mpApp.functions('europe-west1').httpsCallable('mpAdminRelancePartage')({ uid:uid }).then(function(r){
+      var d = (r && r.data) || {};
+      window._mpRelances = window._mpRelances || {}; window._mpRelances[uid] = window._mpRelances[uid] || {};
+      window._mpRelances[uid].partage = Date.now();
+      return d;
+    });
+  }
+  window.mpRelancerPartage = function(uid){
+    if(!confirm('Envoyer à ce gardien la relance « partagez votre profil » (notification + e-mail) ?')) return;
+    mpAppelRelancePartage(uid).then(function(d){
+      if(window.showToast) showToast('📩 Relance envoyée — '+(d.email?'cloche + e-mail':'cloche seule'+(d.raison?' (e-mail : '+d.raison+')':'')));
+      loadMilouPets();
+    }).catch(function(e){ alert('Relance impossible : '+((e&&e.message)||'erreur inconnue')); });
+  };
+  window.mpRelancerPartageTous = function(){
+    var L = mpPartageLignes((window._mpAll&&window._mpAll.gardiens)||[], window._mpUsers||{}, window._mpPartage||{}, window._mpPartageStats||{})
+      .filter(function(x){ return x.statut==='rouge'; });
+    if(!L.length) return;
+    if(!confirm('Envoyer la relance « partagez votre profil » à '+L.length+' gardien'+(L.length>1?'s':'')+' (notification + e-mail) ?')) return;
+    var btn = document.getElementById('mp-partage-relancer'); if(btn){ btn.disabled = true; btn.textContent = 'Envoi…'; }
+    var ok = 0, mails = 0, ko = 0;
+    L.reduce(function(prom, x){
+      return prom.then(function(){ return mpAppelRelancePartage(x.id).then(function(d){ ok++; if(d.email) mails++; }).catch(function(){ ko++; }); });
+    }, Promise.resolve()).then(function(){
+      if(window.showToast) showToast('📩 '+ok+' relancé'+(ok>1?'s':'')+' ('+mails+' e-mail'+(mails>1?'s':'')+')'+(ko?' — '+ko+' échec'+(ko>1?'s':''):''));
+      loadMilouPets();
+    });
+  };
+
   function mpListeAppels(gardiens, USERS){
     var l = gardiens.filter(function(g){ var u=USERS[g.id]||{}; return g.verifie && !g.chargesEnabled && u.bloque!==true && g.bloque!==true; });
     if(!l.length) return '';
@@ -7422,10 +7514,13 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
       // Dernière relance de chaque gardien (écrit par mpAdminRelance).
       window._mpDb.ref('milouPets/relances').once('value').catch(function(){return null;}),
       // Programme Partage : date d'inscription posée par le SERVEUR (inscritLe).
-      window._mpDb.ref('milouPets/partage').once('value').catch(function(){return null;})
+      window._mpDb.ref('milouPets/partage').once('value').catch(function(){return null;}),
+      // Suivi du kit (24/10/2026) : visites du lien, clics du kit, bonus. Écrit par le serveur.
+      window._mpDb.ref('milouPets/partageStats').once('value').catch(function(){return null;})
     ]).then(function(res){
       window._mpRelances = (res[11] && res[11].val()) || {};
       window._mpPartage = (res[12] && res[12].val()) || {};
+      window._mpPartageStats = (res[13] && res[13].val()) || {};
       var gardSnap=res[0], userSnap=res[1], petSnap=res[2], resaSnap=res[3], avisSnap=res[4], reportSnap=res[5], convoSnap=res[6], alertSnap=res[7], bugSnap=res[8], searchSnap=res[9], privSnap=res[10];
       var PRIVE={}; if(privSnap && privSnap.exists()){ privSnap.forEach(function(c){ PRIVE[c.key]=c.val()||{}; }); }
       if(!window._mpRT) mpInitRealtime();   // temps réel + sons (une seule fois)
@@ -7471,6 +7566,7 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
         gardiens.sort(function(a,b){ return ((a.verifie?1:0)-(b.verifie?1:0)) || (mpInscritTs(b,USERS[b.id]) - mpInscritTs(a,USERS[a.id])); });
         gbox.innerHTML=mpListeAppels(gardiens, USERS) + gardiens.map(function(g){ return mpGardienCard(g, USERS[g.id], WALLETS[g.id], PRIVE[g.id]); }).join('');
       }
+      mpRenderPartage(gardiens, USERS);
 
       // ── Rendu clients (users non-gardiens) ──
       var gardIds={}; gardiens.forEach(function(g){ gardIds[g.id]=true; });
@@ -7901,7 +7997,7 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIm
   };
 
   window.mpShowSection = function(name){
-    ["pilotage","gardiens","clients","resas","wallets","convos","signups","alerts","avis","bugs"].forEach(function(sname){
+    ["pilotage","gardiens","partage","clients","resas","wallets","convos","signups","alerts","avis","bugs"].forEach(function(sname){
       var el=document.getElementById("mp-sec-"+sname);
       if(el) el.style.display=(name==="all"||name===sname)?"":"none";
     });
